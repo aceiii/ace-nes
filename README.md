@@ -1,6 +1,7 @@
-# Raylib C++ Template
+# Ace NES Emulator!
 
+===
 
-TODO: Replace contents of this README file
+An NES emulator for learning purposes
 
 
