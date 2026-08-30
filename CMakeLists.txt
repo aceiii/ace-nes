@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(raylib-cpp-template VERSION 0.0.1 LANGUAGES CXX)
-
-set(EXE_NAME main)
+project(ace-nes VERSION 0.0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 
@@ -26,14 +24,14 @@ add_subdirectory(external/magic_enum)
 add_subdirectory(external/nativefiledialog-extended)
 add_subdirectory(external/tomlplusplus)
 
-add_executable(${EXE_NAME} ${SOURCE_FILES})
+add_executable(ace-nes ${SOURCE_FILES})
 
-target_link_libraries(${EXE_NAME} spdlog)
-target_link_libraries(${EXE_NAME} argparse)
-target_link_libraries(${EXE_NAME} magic_enum)
-target_link_libraries(${EXE_NAME} rlimgui)
-target_link_libraries(${EXE_NAME} nfd)
-target_link_libraries(${EXE_NAME} tomlplusplus::tomlplusplus)
+target_link_libraries(ace-nes spdlog)
+target_link_libraries(ace-nes argparse)
+target_link_libraries(ace-nes magic_enum)
+target_link_libraries(ace-nes rlimgui)
+target_link_libraries(ace-nes nfd)
+target_link_libraries(ace-nes tomlplusplus::tomlplusplus)
 
-target_include_directories(${EXE_NAME} PUBLIC external/rlimgui)
+target_include_directories(ace-nes PUBLIC external/rlimgui)
 

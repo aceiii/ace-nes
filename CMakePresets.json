@@ -1,0 +1,76 @@
+{
+  "version": 2,
+  "configurePresets": [
+    {
+      "name": "vcpkg",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+      }
+    },
+    {
+      "name": "Web",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-web",
+      "environment": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      },
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+        "BUILD_EXAMPLES": "OFF",
+        "PLATFORM": "Web"
+      }
+    },
+    {
+      "name": "Debug",
+      "displayName": "Configure Debug",
+      "inherits": "vcpkg",
+      "binaryDir": "${sourceDir}/build-debug",
+      "environment": {},
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "Release",
+      "displayName": "Configure Release",
+      "inherits": "vcpkg",
+      "binaryDir": "${sourceDir}/build-release",
+      "environment": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "RelWithDebInfo",
+      "displayName": "Configure RelWithDebInfo",
+      "inherits": "vcpkg",
+      "binaryDir": "${sourceDir}/build-release-debinfo",
+      "environment": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "Web",
+      "displayName": "Build Web",
+      "configurePreset": "Web"
+    },
+    {
+      "name": "Debug",
+      "displayName": "Build Debug",
+      "configurePreset": "Debug"
+    },
+    {
+      "name": "Release",
+      "displayName": "Configure Release",
+      "configurePreset": "Release"
+    },
+    {
+      "name": "RelWithDebInfo",
+      "displayName": "Configure RelWithDebInfo",
+      "configurePreset": "RelWithDebInfo"
+    }
+  ]
+}
