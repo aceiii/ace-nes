@@ -10,6 +10,13 @@ add_compile_definitions(TOML_EXCEPTIONS=0)
 
 set(SOURCE_FILES
     src/main.cpp
+    src/cpu.hpp
+    src/cpu.cpp
+    src/decoder.hpp
+    src/decoder.cpp
+    src/instruction.hpp
+    src/op.hpp
+    src/types.hpp
 )
 
 set(ARGPARSE_BUILD_TESTS OFF)
