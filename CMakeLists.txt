@@ -14,6 +14,8 @@ set(SOURCE_FILES
     src/cpu.cpp
     src/decoder.hpp
     src/decoder.cpp
+    src/file.hpp
+    src/file.cpp
     src/instruction.hpp
     src/op.hpp
     src/types.hpp
