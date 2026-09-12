@@ -4,21 +4,21 @@
 
 #include "file.hpp"
 
-using file::Buffer, file::FileError;
+using file::Error;
 
 
 namespace {
-  FileError MapErrno(int error) {
+  Error MapErrno(int error) {
     switch (error) {
-      case ENOENT: return FileError::FileNotFound;
-      case EACCES: return FileError::PermissionDenied;
-      default: return FileError::Unknown;
+      case ENOENT: return Error::FileNotFound;
+      case EACCES: return Error::PermissionDenied;
+      default: return Error::Unknown;
     }
   }
 }
 
 
-std::expected<Buffer, FileError> file::LoadBytes(std::string_view path) {
+file::LoadResult file::LoadBytes(std::string_view path) {
   std::ifstream input(std::string{path}, std::ios::in | std::ios::binary);
   if (input.fail()) {
     return std::unexpected{MapErrno(errno)};

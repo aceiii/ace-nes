@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.15)
 project(ace-nes VERSION 0.0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -10,6 +11,9 @@ add_compile_definitions(TOML_EXCEPTIONS=0)
 
 set(SOURCE_FILES
     src/main.cpp
+    src/buffer.hpp
+    src/cart.hpp
+    src/cart.cpp
     src/cpu.hpp
     src/cpu.cpp
     src/decoder.hpp

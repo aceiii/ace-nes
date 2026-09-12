@@ -2,6 +2,8 @@
 #include <magic_enum/magic_enum.hpp>
 #include <spdlog/spdlog.h>
 
+#include "cart.hpp"
+
 static bool set_logging_level(const std::string &level_name) {
   auto level = magic_enum::enum_cast<spdlog::level::level_enum>(level_name);
   if (level.has_value()) {
@@ -17,9 +19,12 @@ auto main(int argc, char *argv[]) -> int {
   argparse::ArgumentParser program("acenes", "0.0.1");
 
   program.add_argument("--log-level")
-      .help("Set the verbosity for logging")
-      .default_value(std::string("info"))
-      .nargs(1);
+    .help("Set the verbosity for logging")
+    .default_value(std::string("info"))
+    .nargs(1);
+
+  program.add_argument("rom")
+    .help("path to NES ROM file");
 
   try {
     program.parse_args(argc, argv);
@@ -39,6 +44,16 @@ auto main(int argc, char *argv[]) -> int {
     return 1;
   }
 
+  const std::string rom_path = program.get("rom");
+
+  spdlog::info("Loading ROM: {}", rom_path);
+
+  Cart cart;
+  if (!cart.Load(rom_path)) {
+    spdlog::error("Failed to load ROM!");
+  } else {
+    spdlog::info("ROM Loaded!");
+  }
 
   spdlog::info("Exiting.");
 

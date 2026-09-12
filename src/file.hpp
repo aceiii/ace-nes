@@ -2,21 +2,22 @@
 
 #include <expected>
 #include <string_view>
-#include <vector>
 
+#include "buffer.hpp"
 #include "types.hpp"
-
 
 namespace file {
 
-  using Buffer = std::vector<u8>;
-
-  enum class FileError {
+  enum class Error {
     Unknown,
     FileNotFound,
-    PermissionDenied,
+    PermissionDenied
   };
 
-  std::expected<Buffer, FileError> LoadBytes(std::string_view path);
+  template <typename T>
+  using Result = std::expected<T, Error>;
 
+  using LoadResult = Result<Buffer>;
+
+  LoadResult LoadBytes(std::string_view path);
 }
