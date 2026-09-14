@@ -1,3 +1,5 @@
+#include <string>
+#include <string_view>
 #include <argparse/argparse.hpp>
 #include <magic_enum/magic_enum.hpp>
 #include <spdlog/spdlog.h>
@@ -51,9 +53,18 @@ auto main(int argc, char *argv[]) -> int {
   Cart cart;
   if (!cart.Load(rom_path)) {
     spdlog::error("Failed to load ROM!");
-  } else {
-    spdlog::info("ROM Loaded!");
+    return 1;
   }
+
+  spdlog::info("ROM Loaded!");
+
+  const auto& header = cart.Header();
+
+  spdlog::info("Ident: {}", std::string(header.ident.begin(), header.ident.end()));
+  spdlog::info("Console Type: {}", magic_enum::enum_name(header.GetConsoleType()));
+  spdlog::info("Video Format: {}", magic_enum::enum_name(header.GetVideoFormat()));
+  spdlog::info("Has Battery: {}", header.HasBattery());
+  spdlog::info("Has Trainer: {}", header.HasTrainer());
 
   spdlog::info("Exiting.");
 
