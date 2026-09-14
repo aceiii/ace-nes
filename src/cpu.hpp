@@ -1,8 +1,10 @@
 #pragma once
 
 #include <bit>
+#include <span>
 
 #include "types.hpp"
+
 
 struct StatusReg {
   union {
@@ -24,7 +26,7 @@ struct Registers {
   u8 a;
   u8 x;
   u8 y;
-  u8 s;
+  u8 sp;
   StatusReg p;
   u16 pc;
 };
@@ -32,4 +34,7 @@ struct Registers {
 class Cpu {
 public:
   Registers registers;
+  std::span<u8> memory;
+
+  void Step();
 };

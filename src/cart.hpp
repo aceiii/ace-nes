@@ -81,6 +81,7 @@ public:
   void Unload();
   bool IsLoaded() const;
   const CartHeader& Header() const;
+  const Buffer& Rom() const;
   size_t Size() const;
 
 private:

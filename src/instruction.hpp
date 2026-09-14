@@ -25,14 +25,14 @@ enum class AddressingMode {
 };
 
 struct Instruction {
+  u8 code;
   Op op;
   AddressingMode addressing_mode;
   u16 arg;
-  u8 skip;
   u8 num_bytes;
   std::array<u8, 3> bytes;
 
-  static auto From(Op op, AddressingMode mode, u8* mem, u8 skip_bytes = 0) {
+  static auto From(Op op, AddressingMode mode, const u8* mem, u8 skip_bytes = 0) {
     u8 num_bytes;
     if (mode == AddressingMode::Implicit) {
       num_bytes = 1;
@@ -42,7 +42,7 @@ struct Instruction {
       num_bytes = 2;
     }
 
-    auto bytes = std::span<u8>(mem, num_bytes);
+    auto bytes = std::span<const u8>(mem, num_bytes);
 
     u16 arg;
     if (num_bytes == 3) {
@@ -52,11 +52,11 @@ struct Instruction {
     }
 
     Instruction instr {
+      .code = bytes[0],
       .op = op,
       .addressing_mode = mode,
       .arg = arg,
-      .skip = skip_bytes,
-      .num_bytes = num_bytes,
+      .num_bytes = static_cast<u8>(num_bytes + skip_bytes),
     };
 
     std::ranges::copy(bytes, instr.bytes.begin());

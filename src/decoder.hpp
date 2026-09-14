@@ -5,5 +5,5 @@
 
 class Decoder {
 public:
-  static Instruction Decode(u8* mem);
+  static Instruction Decode(const u8* mem);
 };

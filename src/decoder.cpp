@@ -1,6 +1,6 @@
 #include "decoder.hpp"
 
-Instruction Decoder::Decode(u8* mem) {
+Instruction Decoder::Decode(const u8* mem) {
   switch (*mem)
   {
     // ADC
