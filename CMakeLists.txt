@@ -9,8 +9,19 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_compile_definitions(TOML_EXCEPTIONS=0)
 
-set(SOURCE_FILES
-    src/main.cpp
+set(ARGPARSE_BUILD_TESTS OFF)
+
+include(cmake/raylib.cmake)
+include(cmake/rlimgui.cmake)
+include(cmake/imgui_club.cmake)
+
+add_subdirectory(external/spdlog)
+add_subdirectory(external/argparse)
+add_subdirectory(external/magic_enum)
+add_subdirectory(external/nativefiledialog-extended)
+add_subdirectory(external/tomlplusplus)
+
+add_library(ace-nes-shared STATIC
     src/buffer.hpp
     src/cart.hpp
     src/cart.cpp
@@ -24,27 +35,16 @@ set(SOURCE_FILES
     src/op.hpp
     src/types.hpp
 )
+target_link_libraries(ace-nes-shared spdlog)
+target_link_libraries(ace-nes-shared argparse)
+target_link_libraries(ace-nes-shared magic_enum)
+target_link_libraries(ace-nes-shared rlimgui)
+target_link_libraries(ace-nes-shared nfd)
+target_link_libraries(ace-nes-shared tomlplusplus::tomlplusplus)
+target_include_directories(ace-nes-shared PUBLIC external/rlimgui)
 
-set(ARGPARSE_BUILD_TESTS OFF)
+add_executable(ace-nes src/main.cpp)
+target_link_libraries(ace-nes PRIVATE ace-nes-shared)
 
-include(cmake/raylib.cmake)
-include(cmake/rlimgui.cmake)
-include(cmake/imgui_club.cmake)
-
-add_subdirectory(external/spdlog)
-add_subdirectory(external/argparse)
-add_subdirectory(external/magic_enum)
-add_subdirectory(external/nativefiledialog-extended)
-add_subdirectory(external/tomlplusplus)
-
-add_executable(ace-nes ${SOURCE_FILES})
-
-target_link_libraries(ace-nes spdlog)
-target_link_libraries(ace-nes argparse)
-target_link_libraries(ace-nes magic_enum)
-target_link_libraries(ace-nes rlimgui)
-target_link_libraries(ace-nes nfd)
-target_link_libraries(ace-nes tomlplusplus::tomlplusplus)
-
-target_include_directories(ace-nes PUBLIC external/rlimgui)
-
+add_executable(nestest src/nestest.cpp)
+target_link_libraries(nestest PRIVATE ace-nes-shared)
