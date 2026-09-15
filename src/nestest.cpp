@@ -10,7 +10,7 @@
 #include "decoder.hpp"
 
 
-static std::string LogLine(u16 pc, const Instruction& instr, const Registers& regs) {
+static std::string LogLine(u16 pc, const Instruction& instr, const Registers& regs, std::span<const u8> mem) {
   u8 lo = static_cast<u8>(instr.arg);
   u8 hi = static_cast<u8>(instr.arg >> 8);
 
@@ -25,10 +25,43 @@ static std::string LogLine(u16 pc, const Instruction& instr, const Registers& re
     case 3:
       bytes_str = std::format("{:02X} {:02X} {:02X}", instr.code, lo, hi);
       break;
-    default: bytes_str = "hello world";
   }
 
   std::string instr_str = std::format("{:3}", magic_enum::enum_name(instr.op));
+  switch (instr.addressing_mode) {
+    case AddressingMode::Accumulator:
+      instr_str += " A";
+      break;
+    case AddressingMode::Immediate:
+      instr_str += std::format(" #${:0X}", static_cast<u8>(instr.arg));
+      break;
+    case AddressingMode::ZeroPage:
+      instr_str += std::format(" ${:02X} = {:02X}", static_cast<u8>(instr.arg), mem[instr.arg]);
+      break;
+    case AddressingMode::Absolute:
+      instr_str += std::format(" ${:04X} = {:02X}", instr.arg, mem[instr.arg]);
+      break;
+    case AddressingMode::Relative:
+      instr_str += std::format(" ${:04X}", static_cast<u16>(regs.pc + instr.arg));
+      break;
+    case AddressingMode::Indirect:
+      instr_str += std::format(" (${:04X}) = {:04x}", instr.arg, regs.pc);
+      break;
+    case AddressingMode::IndexedZeroPageX:
+      instr_str += std::format(" (${:02X},X) @ {:02X} = {:04X} = {:02X}", static_cast<u8>(instr.arg), 0xFF, 0x1234, 0x99);
+      break;
+    case AddressingMode::IndexedZeroPageY:
+      instr_str += std::format(" (${:02X}),Y @ {:02X} = {:04X} = {:02X}", static_cast<u8>(instr.arg), 0xFF, 0x1234, 0x99);
+      break;
+    case AddressingMode::IndexedAbsoluteX:
+      break;
+    case AddressingMode::IndexedAbsoluteY:
+      break;
+    case AddressingMode::IndexedIndirectX:
+      break;
+    case AddressingMode::IndexedIndirectY:
+      break;
+  }
 
   u16 ppu_x = 1;
   u16 ppu_y = 1;
@@ -38,7 +71,6 @@ static std::string LogLine(u16 pc, const Instruction& instr, const Registers& re
 
   return std::format("{:04X}  {:8}  {:30}  {}", pc, bytes_str, instr_str, regs_str);
 }
-
 
 static bool SetLoggingLevel(const std::string &level_name) {
   auto level = magic_enum::enum_cast<spdlog::level::level_enum>(level_name);
@@ -112,15 +144,15 @@ auto main(int argc, char *argv[]) -> int {
   cpu.memory = memory;
 
   while (true) {
-    Registers before = cpu.registers;
+    u16 pc = cpu.registers.pc;
 
-    auto instr = Decoder::Decode(cpu.memory.data() + cpu.registers.pc);
-
-    std::println("{}", LogLine(cpu.registers.pc, instr, cpu.registers));
+    auto instr = Decoder::Decode(cpu.memory.data() + pc);
 
     cpu.Step();
 
     Registers after = cpu.registers;
+
+    std::println("{}", LogLine(pc, instr, cpu.registers, memory));
   }
 
   spdlog::info("Exiting.");
