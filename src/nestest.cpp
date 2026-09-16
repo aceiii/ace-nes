@@ -29,14 +29,15 @@ static std::string LogLine(u16 pc, const Instruction& instr, const Registers& re
 
   std::string instr_str = std::format("{:3}", magic_enum::enum_name(instr.op));
   switch (instr.addressing_mode) {
+    case AddressingMode::Implicit: break;
     case AddressingMode::Accumulator:
       instr_str += " A";
       break;
     case AddressingMode::Immediate:
-      instr_str += std::format(" #${:0X}", static_cast<u8>(instr.arg));
+      instr_str += std::format(" #${:02X}", lo);
       break;
     case AddressingMode::ZeroPage:
-      instr_str += std::format(" ${:02X} = {:02X}", static_cast<u8>(instr.arg), mem[instr.arg]);
+      instr_str += std::format(" ${:02X} = {:02X}", lo, mem[lo]);
       break;
     case AddressingMode::Absolute:
       instr_str += std::format(" ${:04X} = {:02X}", instr.arg, mem[instr.arg]);
@@ -48,19 +49,35 @@ static std::string LogLine(u16 pc, const Instruction& instr, const Registers& re
       instr_str += std::format(" (${:04X}) = {:04x}", instr.arg, regs.pc);
       break;
     case AddressingMode::IndexedZeroPageX:
-      instr_str += std::format(" (${:02X},X) @ {:02X} = {:04X} = {:02X}", static_cast<u8>(instr.arg), 0xFF, 0x1234, 0x99);
+      instr_str += std::format(" (${:02X},X) @ {:02X} = {:02X}", lo, lo + regs.x, mem[lo + regs.x]);
       break;
     case AddressingMode::IndexedZeroPageY:
-      instr_str += std::format(" (${:02X}),Y @ {:02X} = {:04X} = {:02X}", static_cast<u8>(instr.arg), 0xFF, 0x1234, 0x99);
+      instr_str += std::format(" (${:02X}),Y @ {:02X} = {:02X}", lo, lo + regs.y, mem[lo + regs.y]);
       break;
     case AddressingMode::IndexedAbsoluteX:
+    {
+      auto addr = static_cast<u16>(instr.arg + regs.x);
+      instr_str += std::format(" ${:04X},X @ {:04X} = {:02X}", instr.arg, addr, mem[addr]);
       break;
+    }
     case AddressingMode::IndexedAbsoluteY:
+    {
+      auto addr = static_cast<u16>(instr.arg + regs.y);
+      instr_str += std::format(" ${:04X},Y @ {:04X} = {:02X}", instr.arg, addr, mem[addr]);
       break;
+    }
     case AddressingMode::IndexedIndirectX:
+    {
+      auto addr = mem[(lo + regs.x) % 0xFF] | (mem[(lo + regs.x + 1) % 0xFF] << 8);
+      instr_str += std::format(" (${:02X},X) @ {:02X} = {:04X} = {:02X}", lo, addr, addr, mem[addr]);
       break;
+    }
     case AddressingMode::IndexedIndirectY:
+    {
+      auto addr = (mem[lo] | (mem[(lo + 1) & 0xFF] << 8)) + regs.y;
+      instr_str += std::format(" (${:02X}),Y @ {:04X} = {:04X} = {:02X}", lo, addr, addr, mem[addr]);
       break;
+    }
   }
 
   u16 ppu_x = 1;
