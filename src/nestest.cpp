@@ -40,10 +40,10 @@ static std::string LogLine(u16 pc, const Instruction& instr, const Registers& re
       instr_str += std::format(" ${:02X} = {:02X}", lo, mem[lo]);
       break;
     case AddressingMode::Absolute:
-      instr_str += std::format(" ${:04X} = {:02X}", instr.arg, mem[instr.arg]);
+      instr_str += std::format(" ${:04X}", instr.arg);
       break;
     case AddressingMode::Relative:
-      instr_str += std::format(" ${:04X}", static_cast<u16>(regs.pc + instr.arg));
+      instr_str += std::format(" ${:04X}", pc + instr.num_bytes + instr.Offset());
       break;
     case AddressingMode::Indirect:
       instr_str += std::format(" (${:04X}) = {:04x}", instr.arg, regs.pc);
