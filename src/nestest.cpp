@@ -10,7 +10,7 @@
 #include "decoder.hpp"
 
 
-static std::string LogLine(u16 pc, const Instruction& instr, const Registers& regs, std::span<const u8> mem) {
+static std::string LogLine(u16 pc, const Instruction& instr, const Registers& regs, std::span<const u8> mem, u64 cyc) {
   u8 lo = static_cast<u8>(instr.arg);
   u8 hi = static_cast<u8>(instr.arg >> 8);
 
@@ -82,7 +82,6 @@ static std::string LogLine(u16 pc, const Instruction& instr, const Registers& re
 
   u16 ppu_x = 1;
   u16 ppu_y = 1;
-  size_t cyc = 1;
 
   std::string regs_str = std::format("A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} PPU:{:3},{:3} CYC:{}", regs.a, regs.x, regs.y, regs.p.val, regs.sp, ppu_x, ppu_y, cyc);
 
@@ -158,6 +157,7 @@ auto main(int argc, char *argv[]) -> int {
 
   Cpu cpu;
   cpu.registers.pc = 0xC000;
+  cpu.registers.sp = 0xff;
   cpu.memory = memory;
 
   while (true) {
@@ -169,7 +169,7 @@ auto main(int argc, char *argv[]) -> int {
 
     Registers after = cpu.registers;
 
-    std::println("{}", LogLine(pc, instr, cpu.registers, memory));
+    std::println("{}", LogLine(pc, instr, cpu.registers, memory, cpu.cycles));
   }
 
   spdlog::info("Exiting.");

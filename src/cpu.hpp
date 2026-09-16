@@ -35,6 +35,10 @@ class Cpu {
 public:
   Registers registers;
   std::span<u8> memory;
+  u64 cycles;
 
   void Step();
+
+private:
+  void Tick();
 };
