@@ -10,9 +10,10 @@
 #include "decoder.hpp"
 
 
-static std::string LogLine(u16 pc, const Instruction& instr, const Registers& regs, std::span<const u8> mem, u64 cyc) {
-  u8 lo = static_cast<u8>(instr.arg);
-  u8 hi = static_cast<u8>(instr.arg >> 8);
+static std::string LogLine(const Instruction& instr, const Registers& regs, std::span<const u8> mem, u64 cyc) {
+  u16 pc = regs.pc;
+  u8 lo = instr.Lo();
+  u8 hi = instr.Hi();
 
   std::string bytes_str;
   switch (instr.num_bytes) {
@@ -170,7 +171,8 @@ auto main(int argc, char *argv[]) -> int {
 
   Cpu cpu;
   cpu.registers.pc = 0xC000;
-  cpu.registers.sp = 0xff;
+  cpu.registers.sp = 0xfd;
+  cpu.registers.p.val = 0x24;
   cpu.memory = memory;
 
   const auto& lines = log_lines.value();
@@ -180,15 +182,11 @@ auto main(int argc, char *argv[]) -> int {
     u16 pc = cpu.registers.pc;
 
     auto instr = Decoder::Decode(cpu.memory.data() + pc);
+    std::string line_out = std::format("{}", LogLine(instr, cpu.registers, memory, cpu.cycles));
 
     cpu.Step();
 
-    Registers after = cpu.registers;
-
-    const std::string& line_in = lines[line_no];
-    std::string line_out = std::format("{}", LogLine(pc, instr, cpu.registers, memory, cpu.cycles));
-
-    std::println(">>> {}", line_in);
+    std::println(">>> {}", lines[line_no]);
     std::println("<<< {}", line_out);
 
     line_no += 1;

@@ -6,19 +6,28 @@
 
 
 namespace exec {
-  void Push(Registers& regs, std::span<u8> mem, u16 val) {
+  inline void Push8(Registers& regs, std::span<u8> mem, u8 val) {
+    mem[0x0100 + regs.sp--] = val;
+  }
+
+  inline u8 Pop8(Registers& regs, std::span<u8> mem) {
+    return mem[0x0100 + (++regs.sp)];
+  }
+
+  inline void Push16(Registers& regs, std::span<u8> mem, u16 val) {
     u8 lo = val & 0xFF;
     u8 hi = val >> 8;
 
-    mem[regs.sp--] = lo;
-    mem[regs.sp--] = hi;
+    Push8(regs, mem, lo);
+    Push8(regs, mem, hi);
   }
 
-  u16 Pop(Registers& regs, std::span<u8> mem) {
-    u8 hi = mem[++regs.sp];
-    u8 lo = mem[++regs.sp];
+  inline u16 Pop16(Registers& regs, std::span<u8> mem) {
+    u8 hi = Pop8(regs, mem);
+    u8 lo = Pop8(regs, mem);
     return lo | (hi << 8);
   }
+
 
   u16 JMP(const Instruction& instr, const Registers& regs) {
     switch (instr.addressing_mode) {
@@ -30,13 +39,13 @@ namespace exec {
 
   u16 JSR(const Instruction& instr, Registers& regs, std::span<u8> mem) {
     assert(instr.addressing_mode == AddressingMode::Absolute);
-    Push(regs, mem, regs.pc + 2);
+    Push16(regs, mem, regs.pc + 2);
     return instr.arg;
   }
 
   u16 RTS(const Instruction& instr, Registers& regs, std::span<u8> mem) {
     assert(instr.addressing_mode == AddressingMode::Implicit);
-    u16 pc = Pop(regs, mem);
+    u16 pc = Pop16(regs, mem);
     return pc + 1;
   }
 
@@ -106,7 +115,7 @@ namespace exec {
 
   void LDA(const Instruction& instr, Registers& regs, std::span<u8> mem) {
     switch (instr.addressing_mode) {
-      case AddressingMode::Immediate: regs.a = mem[instr.Lo()]; break;
+      case AddressingMode::Immediate: regs.a = instr.Lo(); break;
       case AddressingMode::ZeroPage: regs.a = mem[instr.Lo()]; break;
       case AddressingMode::IndexedZeroPageX: regs.a = mem[(instr.Lo() + regs.x) & 0xFF]; break;
       case AddressingMode::Absolute: regs.a = mem[instr.arg]; break;
@@ -122,17 +131,34 @@ namespace exec {
 
   void LDX(const Instruction& instr, Registers& regs, std::span<u8> mem) {
     switch (instr.addressing_mode) {
-      case AddressingMode::Immediate: regs.x = mem[instr.Lo()]; break;
+      case AddressingMode::Immediate: regs.x = instr.Lo(); break;
+      case AddressingMode::ZeroPage: regs.x = mem[instr.Lo()]; break;
+      case AddressingMode::IndexedZeroPageY: regs.x = mem[(instr.Lo() + regs.y) & 0xFF]; break;
+      case AddressingMode::Absolute: regs.x = mem[instr.Lo()]; break;
+      case AddressingMode::IndexedAbsoluteY: regs.x = mem[instr.arg + regs.y]; break;
       default: std::unreachable();
     }
     regs.p.zero = regs.x == 0;
     regs.p.negative = (regs.x >> 7) & 0b1;
   }
 
+  void LDY(const Instruction& instr, Registers& regs, std::span<u8> mem) {
+    switch (instr.addressing_mode) {
+      case AddressingMode::Immediate: regs.y = instr.Lo(); break;
+      case AddressingMode::ZeroPage: regs.y = mem[instr.Lo()]; break;
+      case AddressingMode::IndexedZeroPageX: regs.y = mem[(instr.Lo() + regs.x) & 0xFF]; break;
+      case AddressingMode::Absolute: regs.y = mem[instr.Lo()]; break;
+      case AddressingMode::IndexedAbsoluteX: regs.y = mem[instr.arg + regs.x]; break;
+      default: std::unreachable();
+    }
+    regs.p.zero = regs.y == 0;
+    regs.p.negative = (regs.y >> 7) & 0b1;
+  }
+
   void STA(const Instruction& instr, Registers& regs, std::span<u8> mem) {
     switch (instr.addressing_mode) {
       case AddressingMode::ZeroPage: mem[instr.Lo()] = regs.a; break;
-      case AddressingMode::IndexedZeroPageX: mem[(instr.Lo() + regs.y) % 0xFF] = regs.a; break;
+      case AddressingMode::IndexedZeroPageX: mem[(instr.Lo() + regs.x) % 0xFF] = regs.a; break;
       case AddressingMode::Absolute: mem[instr.arg] = regs.a; break;
       case AddressingMode::IndexedAbsoluteX: mem[instr.arg + regs.x] = regs.a; break;
       case AddressingMode::IndexedAbsoluteY: mem[instr.arg + regs.y] = regs.a; break;
@@ -145,7 +171,7 @@ namespace exec {
   void STX(const Instruction& instr, Registers& regs, std::span<u8> mem) {
     switch (instr.addressing_mode) {
       case AddressingMode::ZeroPage: mem[instr.Lo()] = regs.y; break;
-      case AddressingMode::IndexedZeroPageX: mem[(instr.Lo() + regs.y) % 0xFF] = regs.x; break;
+      case AddressingMode::IndexedZeroPageX: mem[(instr.Lo() + regs.x) % 0xFF] = regs.x; break;
       case AddressingMode::Absolute: mem[instr.arg] = regs.x; break;
       default: std::unreachable();
     }
@@ -197,6 +223,15 @@ namespace exec {
     regs.p.overflow = (val >> 6) & 0b1;
     regs.p.negative = (val >> 7) & 0b1;
   }
+
+  void PHP(const Instruction& instr, Registers& regs, std::span<u8> mem) {
+    assert(instr.addressing_mode == AddressingMode::Implicit);
+
+    u8 status = regs.p.val;
+    status |= (1 << 4) | (1 << 5);
+
+    Push8(regs, mem, status);
+  }
 }
 
 void Cpu::Step() {
@@ -232,6 +267,7 @@ void Cpu::Step() {
     case Op::BPL: new_pc = exec::BPL(instr, registers); break;
     case Op::LDA: exec::LDA(instr, registers, memory); break;
     case Op::LDX: exec::LDX(instr, registers, memory); break;
+    case Op::LDY: exec::LDY(instr, registers, memory); break;
     case Op::STA: exec::STA(instr, registers, memory); break;
     case Op::STX: exec::STX(instr, registers, memory); break;
     case Op::SEC: exec::SEC(instr, registers); break;
@@ -242,6 +278,7 @@ void Cpu::Step() {
     case Op::CLI: exec::CLI(instr, registers); break;
     case Op::CLV: exec::CLV(instr, registers); break;
     case Op::BIT: exec::BIT(instr, registers, memory); break;
+    case Op::PHP: exec::PHP(instr, registers, memory); break;
     default: throw new std::logic_error("Not implemented");
   }
 
