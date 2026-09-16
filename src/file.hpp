@@ -17,7 +17,6 @@ namespace file {
   template <typename T>
   using Result = std::expected<T, Error>;
 
-  using LoadResult = Result<Buffer>;
-
-  LoadResult LoadBytes(std::string_view path);
+  Result<Buffer> LoadBytes(std::string_view path);
+  Result<std::vector<std::string>> ReadLines(std::string_view path);
 }

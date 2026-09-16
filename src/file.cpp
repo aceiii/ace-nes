@@ -18,7 +18,7 @@ namespace {
 }
 
 
-file::LoadResult file::LoadBytes(std::string_view path) {
+file::Result<Buffer> file::LoadBytes(std::string_view path) {
   std::ifstream input(std::string{path}, std::ios::in | std::ios::binary);
   if (input.fail()) {
     return std::unexpected{MapErrno(errno)};
@@ -35,4 +35,20 @@ file::LoadResult file::LoadBytes(std::string_view path) {
   std::copy(std::istream_iterator<u8>(input), std::istream_iterator<u8>(), std::back_inserter(bytes));
 
   return bytes;
+}
+
+file::Result<std::vector<std::string>> file::ReadLines(std::string_view path) {
+  std::ifstream input(std::string{path}, std::ios::in);
+  if (input.fail()) {
+    return std::unexpected{MapErrno(errno)};
+  }
+
+  std::vector<std::string> lines;
+  std::string line;
+
+  while (std::getline(input, line)) {
+    lines.push_back(line);
+  }
+
+  return lines;
 }

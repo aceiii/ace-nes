@@ -205,7 +205,7 @@ void Cpu::Step() {
   auto instr = Decoder::Decode(memory.data() + pc);
   Tick();
 
-  spdlog::debug("[0x{:04X}] 0x{:02X} ({})", pc, instr.code, magic_enum::enum_name(instr.op));
+  spdlog::trace("[0x{:04X}] 0x{:02X} ({})", pc, instr.code, magic_enum::enum_name(instr.op));
 
   if (instr.num_bytes > 1) {
     Tick();

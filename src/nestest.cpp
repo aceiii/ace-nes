@@ -111,6 +111,10 @@ auto main(int argc, char *argv[]) -> int {
     .default_value("./roms/nestest.nes")
     .help("path to nestest.nes ROM file");
 
+  program.add_argument("testlog")
+    .default_value("./roms/nestest.log")
+    .help("path to nestest.log LOG file");
+
   try {
     program.parse_args(argc, argv);
   } catch (const std::exception &err) {
@@ -130,6 +134,15 @@ auto main(int argc, char *argv[]) -> int {
   }
 
   const std::string rom_path = program.get("rom");
+  const std::string log_path = program.get("testlog");
+
+  spdlog::info("Loading LOG: {}", log_path);
+
+  auto log_lines = file::ReadLines(log_path);
+  if (!log_lines.has_value()) {
+    spdlog::error("Failed to load LOG!");
+    return 1;
+  }
 
   spdlog::info("Loading ROM: {}", rom_path);
 
@@ -160,6 +173,9 @@ auto main(int argc, char *argv[]) -> int {
   cpu.registers.sp = 0xff;
   cpu.memory = memory;
 
+  const auto& lines = log_lines.value();
+  u64 line_no = 0;
+
   while (true) {
     u16 pc = cpu.registers.pc;
 
@@ -169,7 +185,13 @@ auto main(int argc, char *argv[]) -> int {
 
     Registers after = cpu.registers;
 
-    std::println("{}", LogLine(pc, instr, cpu.registers, memory, cpu.cycles));
+    const std::string& line_in = lines[line_no];
+    std::string line_out = std::format("{}", LogLine(pc, instr, cpu.registers, memory, cpu.cycles));
+
+    std::println(">>> {}", line_in);
+    std::println("<<< {}", line_out);
+
+    line_no += 1;
   }
 
   spdlog::info("Exiting.");
