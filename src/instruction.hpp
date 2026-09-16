@@ -32,6 +32,18 @@ struct Instruction {
   u8 num_bytes;
   std::array<u8, 3> bytes;
 
+  auto Lo() const -> u8 {
+    return arg & 0xFF;
+  }
+
+  auto Hi() const -> u8 {
+    return arg >> 8;
+  }
+
+  auto Offset() const -> i8 {
+    return arg & 0xFF;
+  }
+
   static auto From(Op op, AddressingMode mode, const u8* mem, u8 skip_bytes = 0) {
     u8 num_bytes;
     if (mode == AddressingMode::Implicit) {

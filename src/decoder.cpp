@@ -44,7 +44,10 @@ Instruction Decoder::Decode(const u8* mem) {
     case 0x2C: return Instruction::From(Op::BIT, AddressingMode::Absolute, mem);
 
     // BMI
-    case 0xD0: return Instruction::From(Op::BMI, AddressingMode::Relative, mem);
+    case 0x30: return Instruction::From(Op::BMI, AddressingMode::Relative, mem);
+
+    // BNE
+    case 0xD0: return Instruction::From(Op::BNE, AddressingMode::Relative, mem);
 
     // BPL
     case 0x10: return Instruction::From(Op::BPL, AddressingMode::Relative, mem);
