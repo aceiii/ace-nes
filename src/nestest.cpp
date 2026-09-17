@@ -10,6 +10,37 @@
 #include "decoder.hpp"
 
 
+static inline auto Red(std::string_view sv) {
+  return std::format("\033[1;31m{}\033[0m\n", sv);
+}
+
+static std::string HighlightMismatch(std::string_view input, std::string_view output) {
+  int idx = -1;
+  int n = std::max(input.size(), output.size());
+  for (int i = 0; i < n; i++) {
+    if (i >= input.size()) {
+      idx = i;
+      break;
+    }
+
+    auto c1 = input[i];
+    auto c2 = output[i];
+    if (c1 != c2) {
+      idx = i;
+      break;
+    }
+  }
+
+  if (idx == -1) {
+    return std::string(output);
+  }
+  if (idx == 0) {
+    return Red(output);
+  }
+
+  return std::string(output.substr(0, idx)) + Red(output.substr(idx));
+}
+
 static std::string LogLine(const Instruction& instr, const Registers& regs, std::span<const u8> mem, u64 cyc) {
   u16 pc = regs.pc;
   u8 lo = instr.Lo();
@@ -186,8 +217,8 @@ auto main(int argc, char *argv[]) -> int {
 
     cpu.Step();
 
-    std::println(">>> {}", lines[line_no]);
-    std::println("<<< {}", line_out);
+    spdlog::info(">>> {}", lines[line_no]);
+    spdlog::info("<<< {}", HighlightMismatch(lines[line_no], line_out));
 
     line_no += 1;
   }
