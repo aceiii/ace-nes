@@ -14,7 +14,7 @@ struct StatusReg {
       u8 interrupt_disable: 1;
       u8 decimal: 1;
       u8 b_flag : 1;
-      u8 _ : 1;
+      u8 ignored : 1;
       u8 overflow: 1;
       u8 negative: 1;
     };

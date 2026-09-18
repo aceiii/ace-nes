@@ -1,4 +1,7 @@
+#include <spdlog/spdlog.h>
+
 #include "decoder.hpp"
+
 
 Instruction Decoder::Decode(const u8* mem) {
   switch (*mem)
@@ -266,6 +269,5 @@ Instruction Decoder::Decode(const u8* mem) {
     // TYA
     case 0x98: return Instruction::From(Op::TYA, AddressingMode::Implicit, mem);
   }
-
-  return Instruction::Unknown();
+  return Instruction::Unknown(*mem);
 }

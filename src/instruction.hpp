@@ -76,7 +76,7 @@ struct Instruction {
     return instr;
   }
 
-  static auto Unknown() {
-    return Instruction { .op = Op::UNKNOWN };
+  static auto Unknown(u8 byte) {
+    return Instruction { .op = Op::UNKNOWN, .code = byte };
   }
 };
