@@ -39,6 +39,12 @@ public:
 
   void Step();
 
+  u8 ReadNext();
+  u16 ReadNext16();
+
+  u8 Read(u16 address);
+  void Write(u16 address, u8 value);
+
 private:
   void Tick();
 };

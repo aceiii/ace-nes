@@ -5,6 +5,7 @@
 #include <magic_enum/magic_enum.hpp>
 #include <spdlog/spdlog.h>
 
+#include "bus.hpp"
 #include "cart.hpp"
 #include "cpu.hpp"
 #include "decoder.hpp"
@@ -43,8 +44,9 @@ static std::string HighlightMismatch(std::string_view input, std::string_view ou
 
 static std::string LogLine(const Instruction& instr, const Registers& regs, std::span<const u8> mem, u64 cyc) {
   u16 pc = regs.pc;
-  u8 lo = instr.Lo();
-  u8 hi = instr.Hi();
+  u8 lo = instr.lo;
+  u8 hi = instr.hi;
+  u16 arg = lo | (hi >> 8);
 
   std::string bytes_str;
   switch (instr.num_bytes) {
@@ -72,13 +74,13 @@ static std::string LogLine(const Instruction& instr, const Registers& regs, std:
       instr_str += std::format(" ${:02X} = {:02X}", lo, mem[lo]);
       break;
     case AddressingMode::Absolute:
-      instr_str += std::format(" ${:04X}", instr.arg);
+      instr_str += std::format(" ${:04X}", arg);
       break;
     case AddressingMode::Relative:
-      instr_str += std::format(" ${:04X}", pc + instr.num_bytes + instr.Offset());
+      instr_str += std::format(" ${:04X}", pc + instr.num_bytes + static_cast<i8>(lo));
       break;
     case AddressingMode::Indirect:
-      instr_str += std::format(" (${:04X}) = {:04x}", instr.arg, regs.pc);
+      instr_str += std::format(" (${:04X}) = {:04x}", arg, pc);
       break;
     case AddressingMode::IndexedZeroPageX:
       instr_str += std::format(" (${:02X},X) @ {:02X} = {:02X}", lo, lo + regs.x, mem[lo + regs.x]);
@@ -88,14 +90,14 @@ static std::string LogLine(const Instruction& instr, const Registers& regs, std:
       break;
     case AddressingMode::IndexedAbsoluteX:
     {
-      auto addr = static_cast<u16>(instr.arg + regs.x);
-      instr_str += std::format(" ${:04X},X @ {:04X} = {:02X}", instr.arg, addr, mem[addr]);
+      auto addr = static_cast<u16>(arg + regs.x);
+      instr_str += std::format(" ${:04X},X @ {:04X} = {:02X}", arg, addr, mem[addr]);
       break;
     }
     case AddressingMode::IndexedAbsoluteY:
     {
-      auto addr = static_cast<u16>(instr.arg + regs.y);
-      instr_str += std::format(" ${:04X},Y @ {:04X} = {:02X}", instr.arg, addr, mem[addr]);
+      auto addr = static_cast<u16>(arg + regs.y);
+      instr_str += std::format(" ${:04X},Y @ {:04X} = {:02X}", arg, addr, mem[addr]);
       break;
     }
     case AddressingMode::IndexedIndirectX:

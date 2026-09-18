@@ -23,6 +23,7 @@ add_subdirectory(external/tomlplusplus)
 
 add_library(ace-nes-shared STATIC
     src/buffer.hpp
+    src/bus.hpp
     src/cart.hpp
     src/cart.cpp
     src/cpu.hpp
