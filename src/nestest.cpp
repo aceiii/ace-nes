@@ -11,6 +11,66 @@
 #include "decoder.hpp"
 
 
+class TestBus : public IBus {
+public:
+  StaticBuffer<0x0800> ram {};
+  StaticBuffer<0x2000> cart_ram {};
+  StaticBuffer<0x4000> mem {};
+  StaticBuffer<0x8> ppu {};
+  Cart* cart;
+
+  u8 Read(u16 address, BusMode mode = BusMode::Normal) override {
+    u8 val = ([&]() -> u8 {
+      if (address < 0x2000) {
+        return ram[address % ram.size()];
+      }
+
+      if (address < 0x4000) {
+        return ppu[address % ppu.size()];
+      }
+
+      if (address < 0x4018) {
+        return 0xFF;
+      }
+
+      if (address < 0x8000) {
+        return mem[address % 0x4000];
+      }
+
+      if (address >= 0x8000) {
+        const auto& rom = cart->Rom();
+        return rom[address % 0x4000];
+      }
+
+      return 0x00;
+    })();
+
+    spdlog::trace("TestBus::Read(0x{:04X}) => 0x{:02X}", address, val);
+    return val;
+  }
+
+  void Write(u16 address, u8 value, BusMode mode = BusMode::Normal) override {
+    spdlog::trace("TestBus::Write(0x{:04X}, 0x{:02x})", address, value);
+
+    if (address < 0x2000) {
+      ram[address % 0x0800] = value;
+    }
+
+    if (address < 0x4000) {
+      ppu[address % 0x8] = value;
+    }
+
+    if (address < 0x4018) {
+      return;
+    }
+
+    if (address < 0x8000) {
+      mem[address % 0x4000] = value;
+    }
+  }
+
+};
+
 static inline auto Red(std::string_view sv) {
   return std::format("\033[1;31m{}\033[0m\n", sv);
 }
@@ -42,11 +102,11 @@ static std::string HighlightMismatch(std::string_view input, std::string_view ou
   return std::string(output.substr(0, idx)) + Red(output.substr(idx));
 }
 
-static std::string LogLine(const Instruction& instr, const Registers& regs, std::span<const u8> mem, u64 cyc) {
+static std::string LogLine(const Instruction& instr, const Registers& regs, TestBus& bus, u64 cyc) {
   u16 pc = regs.pc;
   u8 lo = instr.lo;
   u8 hi = instr.hi;
-  u16 arg = lo | (hi >> 8);
+  u16 arg = lo | (hi << 8);
 
   std::string bytes_str;
   switch (instr.num_bytes) {
@@ -71,7 +131,7 @@ static std::string LogLine(const Instruction& instr, const Registers& regs, std:
       instr_str += std::format(" #${:02X}", lo);
       break;
     case AddressingMode::ZeroPage:
-      instr_str += std::format(" ${:02X} = {:02X}", lo, mem[lo]);
+      instr_str += std::format(" ${:02X} = {:02X}", lo, bus.Read(lo));
       break;
     case AddressingMode::Absolute:
       instr_str += std::format(" ${:04X}", arg);
@@ -83,33 +143,33 @@ static std::string LogLine(const Instruction& instr, const Registers& regs, std:
       instr_str += std::format(" (${:04X}) = {:04x}", arg, pc);
       break;
     case AddressingMode::IndexedZeroPageX:
-      instr_str += std::format(" (${:02X},X) @ {:02X} = {:02X}", lo, lo + regs.x, mem[lo + regs.x]);
+      instr_str += std::format(" (${:02X},X) @ {:02X} = {:02X}", lo, lo + regs.x, bus.Read(lo + regs.x));
       break;
     case AddressingMode::IndexedZeroPageY:
-      instr_str += std::format(" (${:02X}),Y @ {:02X} = {:02X}", lo, lo + regs.y, mem[lo + regs.y]);
+      instr_str += std::format(" (${:02X}),Y @ {:02X} = {:02X}", lo, lo + regs.y, bus.Read(lo + regs.y));
       break;
     case AddressingMode::IndexedAbsoluteX:
     {
       auto addr = static_cast<u16>(arg + regs.x);
-      instr_str += std::format(" ${:04X},X @ {:04X} = {:02X}", arg, addr, mem[addr]);
+      instr_str += std::format(" ${:04X},X @ {:04X} = {:02X}", arg, addr, bus.Read(addr));
       break;
     }
     case AddressingMode::IndexedAbsoluteY:
     {
       auto addr = static_cast<u16>(arg + regs.y);
-      instr_str += std::format(" ${:04X},Y @ {:04X} = {:02X}", arg, addr, mem[addr]);
+      instr_str += std::format(" ${:04X},Y @ {:04X} = {:02X}", arg, addr, bus.Read(addr));
       break;
     }
     case AddressingMode::IndexedIndirectX:
     {
-      auto addr = mem[(lo + regs.x) % 0xFF] | (mem[(lo + regs.x + 1) % 0xFF] << 8);
-      instr_str += std::format(" (${:02X},X) @ {:02X} = {:04X} = {:02X}", lo, addr, addr, mem[addr]);
+      auto addr = bus.Read((lo + regs.x) % 0xFF) | (bus.Read((lo + regs.x + 1) % 0xFF) << 8);
+      instr_str += std::format(" (${:02X},X) @ {:02X} = {:04X} = {:02X}", lo, addr, addr, bus.Read(addr));
       break;
     }
     case AddressingMode::IndexedIndirectY:
     {
-      auto addr = (mem[lo] | (mem[(lo + 1) & 0xFF] << 8)) + regs.y;
-      instr_str += std::format(" (${:02X}),Y @ {:04X} = {:04X} = {:02X}", lo, addr, addr, mem[addr]);
+      auto addr = (bus.Read(lo) | (bus.Read((lo + 1) & 0xFF) << 8)) + regs.y;
+      instr_str += std::format(" (${:02X}),Y @ {:04X} = {:04X} = {:02X}", lo, addr, addr, bus.Read(addr));
       break;
     }
   }
@@ -148,6 +208,16 @@ auto main(int argc, char *argv[]) -> int {
   program.add_argument("testlog")
     .default_value("./roms/nestest.log")
     .help("path to nestest.log LOG file");
+
+  program.add_argument("-x", "--early-exit")
+    .default_value(false)
+    .implicit_value(true)
+    .help("exit after first error");
+
+  program.add_argument("-n", "--exit-at")
+    .scan<'i', int>()
+    .default_value(-1)
+    .help("exit after N lines");
 
   try {
     program.parse_args(argc, argv);
@@ -198,31 +268,51 @@ auto main(int argc, char *argv[]) -> int {
 
   auto& rom = cart.Rom();
 
-  StaticBuffer<0xFFFF> memory;
-  std::copy(rom.begin(), rom.begin() + 0x4000, memory.begin() + 0x8000);
-  std::copy(rom.begin(), rom.begin() + 0x4000, memory.begin() + 0xC000);
+  TestBus bus;
+  bus.cart = &cart;
 
   Cpu cpu;
+  cpu.cycles = 7;
+  cpu.registers.a = 0;
+  cpu.registers.x = 0;
+  cpu.registers.y = 0;
   cpu.registers.pc = 0xC000;
   cpu.registers.sp = 0xfd;
   cpu.registers.p.val = 0x24;
-  cpu.memory = memory;
+  cpu.bus = &bus;
 
   const auto& lines = log_lines.value();
   u64 line_no = 0;
 
+  auto early_exit = program.get<bool>("--early-exit");
+  auto exit_at = program.get<int>("--exit-at");
+
   while (true) {
     u16 pc = cpu.registers.pc;
 
-    auto instr = Decoder::Decode(cpu.memory.data() + pc);
-    std::string line_out = std::format("{}", LogLine(instr, cpu.registers, memory, cpu.cycles));
+    auto byte = bus.Read(pc, BusMode::Direct);
+    auto instr = Decoder::Decode(byte, pc);
+    if (instr.num_bytes >= 2) {
+      instr.lo = bus.Read(pc + 1, BusMode::Direct);
+    }
+    if (instr.num_bytes >= 3) {
+      instr.hi = bus.Read(pc + 2, BusMode::Direct);
+    }
+
+    std::string line_out = std::format("{}", LogLine(instr, cpu.registers, bus, cpu.cycles));
 
     cpu.Step();
 
-    spdlog::info(">>> {}", lines[line_no]);
+    const auto& line_in = lines[line_no];
+
+    spdlog::info(">>> {}", line_in);
     spdlog::info("<<< {}", HighlightMismatch(lines[line_no], line_out));
 
     line_no += 1;
+
+    if ((early_exit && line_in != line_out) || (exit_at && exit_at == line_no)) {
+      break;
+    }
   }
 
   spdlog::info("Exiting.");

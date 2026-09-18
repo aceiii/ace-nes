@@ -5,7 +5,7 @@
 
 enum class BusMode {
   Normal,
-  DMA,
+  Direct,
 };
 
 class IBus {

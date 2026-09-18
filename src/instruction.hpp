@@ -25,6 +25,7 @@ enum class AddressingMode {
 };
 
 struct Instruction {
+  u16 addr;
   u8 code;
   u8 lo;
   u8 hi;
@@ -32,26 +33,21 @@ struct Instruction {
   AddressingMode addressing_mode;
   u8 num_bytes;
 
-  static auto From(Op op, AddressingMode mode, const u8* mem, u8 skip_bytes = 0) {
-    u8 lo, hi, num_bytes;
+  static auto From(Op op, AddressingMode mode, u8 byte, u16 addr, u8 skip_bytes = 0) {
+    u8 num_bytes;
     if (mode == AddressingMode::Implicit) {
       num_bytes = 1;
-      lo = 0;
-      hi = 0;
     } else if (mode == AddressingMode::Absolute || mode == AddressingMode::IndexedAbsoluteX || mode == AddressingMode::IndexedAbsoluteY) {
       num_bytes = 3;
-      lo = mem[1];
-      hi = mem[2];
     } else {
       num_bytes = 2;
-      lo = mem[1];
-      hi = 0;
     }
 
     Instruction instr {
-      .code = mem[0],
-      .lo = lo,
-      .hi = hi,
+      .addr = addr,
+      .code = byte,
+      .lo = 0,
+      .hi = 0,
       .op = op,
       .addressing_mode = mode,
       .num_bytes = static_cast<u8>(num_bytes + skip_bytes),
@@ -60,7 +56,7 @@ struct Instruction {
     return instr;
   }
 
-  static auto Unknown(u8 byte) {
-    return Instruction { .op = Op::UNKNOWN, .code = byte };
+  static auto Unknown(u8 byte, u16 addr) {
+    return Instruction { .code = byte, .addr = addr, .op = Op::UNKNOWN };
   }
 };

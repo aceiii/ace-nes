@@ -33,9 +33,9 @@ struct Registers {
 
 class Cpu {
 public:
-  Registers registers;
-  std::span<u8> memory;
-  u64 cycles;
+  Registers registers {};
+  u64 cycles {};
+  IBus* bus {};
 
   void Step();
 

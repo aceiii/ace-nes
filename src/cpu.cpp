@@ -118,16 +118,15 @@ namespace exec {
 
   u16 JSR(const Instruction& instr, Cpu* cpu) {
     assert(instr.addressing_mode == AddressingMode::Absolute);
-    u16 addr = ReadAbsolute(cpu);
-
-    Push16(cpu, cpu->registers.pc + 2);
+    u16 addr = cpu->ReadNext16();
+    Push16(cpu, cpu->registers.pc);
     return addr;
   }
 
   u16 RTS(const Instruction& instr, Cpu* cpu) {
     assert(instr.addressing_mode == AddressingMode::Implicit);
     u16 pc = Pop16(cpu);
-    return pc + 1;
+    return pc;
   }
 
   u16 BCS(const Instruction& instr, Cpu* cpu) {
@@ -335,7 +334,7 @@ namespace exec {
     cpu->registers.p.overflow = (new_val >> 6) & 0b1;
     cpu->registers.p.negative = (new_val >> 7) & 0b1;
 
-    // spdlog::trace("BIT instr: A={:02x}, arg={:04X}, val={:02X}, new_val={:02X}, zero={}, overflow={}, negative={}", cpu->registers.a, instr.arg, val, new_val, (u8)cpu->registers.p.zero, (u8)cpu->registers.p.overflow, (u8)cpu->registers.p.negative);
+    spdlog::trace("BIT instr: A={:02x}, lo={:02X}, hi={:02X}, val={:02X}, new_val={:02X}, zero={}, overflow={}, negative={}", cpu->registers.a, instr.lo, instr.hi, val, new_val, (u8)cpu->registers.p.zero, (u8)cpu->registers.p.overflow, (u8)cpu->registers.p.negative);
     return cpu->registers.pc;
   }
 
@@ -619,14 +618,17 @@ namespace exec {
 }
 
 void Cpu::Step() {
-  const auto& pc = registers.pc;
+  auto instr = Decoder::Decode(ReadNext(), registers.pc);
+  if (instr.num_bytes >= 2) {
+    instr.lo = bus->Read(registers.pc, BusMode::Direct);
+  }
+  if (instr.num_bytes >= 3) {
+    instr.hi = bus->Read(registers.pc + 1, BusMode::Direct);
+  }
 
-  auto instr = Decoder::Decode(memory.data() + pc);
-  ReadNext();
-
-  u16 new_pc;
+  u16 new_pc = registers.pc;
   switch (instr.op) {
-    case Op::NOP: break;
+    case Op::NOP: Tick(); break;
     case Op::JMP: new_pc = exec::JMP(instr, this); break;
     case Op::JSR: new_pc = exec::JSR(instr, this); break;
     case Op::RTS: new_pc = exec::RTS(instr, this); break;
@@ -676,7 +678,7 @@ void Cpu::Step() {
     case Op::TXS: new_pc = exec::TXS(instr, this); break;
     case Op::BRK: new_pc = exec::BRK(instr, this); break;
     default:
-      spdlog::critical("Instruction not implemented: {}({:02X})", magic_enum::enum_name(instr.op), instr.code);
+      spdlog::critical("Instruction not implemented: {}({:02X}) @ 0x{:02X}", magic_enum::enum_name(instr.op), instr.code, instr.addr);
       throw new std::logic_error("Not implemented");
   }
 
@@ -684,7 +686,7 @@ void Cpu::Step() {
 }
 
 u8 Cpu::ReadNext() {
-  u8 value = memory[registers.pc++];
+  u8 value = bus->Read(registers.pc++);
   Tick();
   return value;
 }
@@ -692,17 +694,17 @@ u8 Cpu::ReadNext() {
 u16 Cpu::ReadNext16() {
   u8 lo = ReadNext();
   u8 hi = ReadNext();
-  return lo | (hi >> 8);
+  return lo | (hi << 8);
 }
 
 u8 Cpu::Read(u16 address) {
-  u8 value = memory[address];
+  u8 value = bus->Read(address);
   Tick();
   return value;
 }
 
 void Cpu::Write(u16 address, u8 value) {
-  memory[address] = value;
+  bus->Write(address, value);
   Tick();
 }
 
