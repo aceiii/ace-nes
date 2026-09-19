@@ -121,6 +121,18 @@ static std::string LogLine(const Instruction& instr, const Registers& regs, Test
       break;
   }
 
+  bool abs_include_assignment;
+  switch (instr.op) {
+    case Op::LDA:
+    case Op::LDX:
+    case Op::STX:
+      abs_include_assignment = true;
+      break;
+    default:
+      abs_include_assignment = false;
+      break;
+  }
+
   std::string instr_str = std::format("{:3}", magic_enum::enum_name(instr.op));
   switch (instr.addressing_mode) {
     case AddressingMode::Implicit: break;
@@ -135,6 +147,9 @@ static std::string LogLine(const Instruction& instr, const Registers& regs, Test
       break;
     case AddressingMode::Absolute:
       instr_str += std::format(" ${:04X}", arg);
+      if (abs_include_assignment) {
+        instr_str += std::format(" = {:02X}", bus.Read(arg));
+      }
       break;
     case AddressingMode::Relative:
       instr_str += std::format(" ${:04X}", pc + instr.num_bytes + static_cast<i8>(lo));
