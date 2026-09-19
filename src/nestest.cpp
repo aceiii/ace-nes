@@ -126,6 +126,7 @@ static std::string LogLine(const Instruction& instr, const Registers& regs, Test
     case Op::LDA:
     case Op::LDX:
     case Op::STX:
+    case Op::STA:
       abs_include_assignment = true;
       break;
     default:
@@ -178,7 +179,7 @@ static std::string LogLine(const Instruction& instr, const Registers& regs, Test
     case AddressingMode::IndexedIndirectX:
     {
       auto addr = bus.Read((lo + regs.x) % 0xFF) | (bus.Read((lo + regs.x + 1) % 0xFF) << 8);
-      instr_str += std::format(" (${:02X},X) @ {:02X} = {:04X} = {:02X}", lo, addr, addr, bus.Read(addr));
+      instr_str += std::format(" (${:02X},X) @ {:02X} = {:04X} = {:02X}", lo, lo, addr, bus.Read(addr));
       break;
     }
     case AddressingMode::IndexedIndirectY:
@@ -314,11 +315,11 @@ auto main(int argc, char *argv[]) -> int {
       instr.hi = bus.Read(pc + 2, BusMode::Direct);
     }
 
-    std::string line_out = std::format("{}", LogLine(instr, cpu.registers, bus, cpu.cycles));
+    std::string line_out = std::format("{}", LogLine(instr, cpu.registers, bus, cpu.cycles)).substr(0, 73);
 
     cpu.Step();
 
-    const auto& line_in = lines[line_no];
+    const auto& line_in = lines[line_no].substr(0, 73);
 
     spdlog::info("in  #{:<5} : {}", line_no, line_in);
     spdlog::info("out #{:<5} : {}", line_no, HighlightMismatch(lines[line_no], line_out));

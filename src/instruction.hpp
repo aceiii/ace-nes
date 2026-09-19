@@ -35,7 +35,7 @@ struct Instruction {
 
   static auto From(Op op, AddressingMode mode, u8 byte, u16 addr, u8 skip_bytes = 0) {
     u8 num_bytes;
-    if (mode == AddressingMode::Implicit) {
+    if (mode == AddressingMode::Implicit || mode == AddressingMode::Accumulator) {
       num_bytes = 1;
     } else if (mode == AddressingMode::Absolute || mode == AddressingMode::IndexedAbsoluteX || mode == AddressingMode::IndexedAbsoluteY) {
       num_bytes = 3;
