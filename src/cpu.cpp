@@ -331,8 +331,8 @@ namespace exec {
 
     u8 new_val = cpu->registers.a & val;
     cpu->registers.p.zero = new_val == 0;
-    cpu->registers.p.overflow = (new_val >> 6) & 0b1;
-    cpu->registers.p.negative = (new_val >> 7) & 0b1;
+    cpu->registers.p.overflow = (val >> 6) & 0b1;
+    cpu->registers.p.negative = (val >> 7) & 0b1;
 
     spdlog::trace("BIT instr: A={:02x}, lo={:02X}, hi={:02X}, val={:02X}, new_val={:02X}, zero={}, overflow={}, negative={}", cpu->registers.a, instr.lo, instr.hi, val, new_val, (u8)cpu->registers.p.zero, (u8)cpu->registers.p.overflow, (u8)cpu->registers.p.negative);
     return cpu->registers.pc;
@@ -501,7 +501,7 @@ namespace exec {
     cpu->registers.a = new_val & 0xFF;
     cpu->registers.p.carry = new_val > 0xFF;
     cpu->registers.p.zero = cpu->registers.a == 0;
-    cpu->registers.p.overflow = (cpu->registers.a ^ orig_a) & (cpu->registers.a ^ val) & 0x80;
+    cpu->registers.p.overflow = (((cpu->registers.a ^ orig_a) & (cpu->registers.a ^ val)) >> 7) & 0b1;
     cpu->registers.p.negative = (cpu->registers.a >> 7) & 0b1;
     return cpu->registers.pc;
   }
@@ -521,11 +521,11 @@ namespace exec {
     }
 
     u8 orig_a = cpu->registers.a;
-    u16 new_val = cpu->registers.a - val - ~cpu->registers.p.carry;
+    i16 new_val = static_cast<i16>(cpu->registers.a - val - (~cpu->registers.p.carry & 0b1));
     cpu->registers.a = new_val & 0xFF;
-    cpu->registers.p.carry = ~(new_val < 0x00);
+    cpu->registers.p.carry = ~(new_val < 0x00) & 0b1;
     cpu->registers.p.zero = cpu->registers.a == 0;
-    cpu->registers.p.overflow = (cpu->registers.a ^ orig_a) & (cpu->registers.a ^ ~val) & 0x80;
+    cpu->registers.p.overflow = (((cpu->registers.a ^ orig_a) & (cpu->registers.a ^ ~val)) >> 7) & 0b1;
     cpu->registers.p.negative = (cpu->registers.a >> 7) & 0b1;
     return cpu->registers.pc;
   }
@@ -597,7 +597,7 @@ namespace exec {
   u16 TSX(const Instruction& instr, Cpu* cpu) {
     assert(instr.addressing_mode == AddressingMode::Implicit);
     cpu->registers.x = cpu->registers.sp;
-    cpu->registers.p.zero = cpu->registers.x == 0;
+    cpu->registers.p.zero = (cpu->registers.x == 0) & 0b1;
     cpu->registers.p.negative = (cpu->registers.x >> 7) & 0b1;
     return cpu->registers.pc;
   }
@@ -605,8 +605,6 @@ namespace exec {
   u16 TXS(const Instruction& instr, Cpu* cpu) {
     assert(instr.addressing_mode == AddressingMode::Implicit);
     cpu->registers.sp = cpu->registers.x;
-    cpu->registers.p.zero = cpu->registers.sp == 0;
-    cpu->registers.p.negative = (cpu->registers.sp >> 7) & 0b1;
     return cpu->registers.pc;
   }
 

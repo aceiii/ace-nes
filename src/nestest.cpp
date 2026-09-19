@@ -287,7 +287,7 @@ auto main(int argc, char *argv[]) -> int {
   auto early_exit = program.get<bool>("--early-exit");
   auto exit_at = program.get<int>("--exit-at");
 
-  while (true) {
+  while (line_no < lines.size()) {
     u16 pc = cpu.registers.pc;
 
     auto byte = bus.Read(pc, BusMode::Direct);
@@ -305,8 +305,8 @@ auto main(int argc, char *argv[]) -> int {
 
     const auto& line_in = lines[line_no];
 
-    spdlog::info(">>> {}", line_in);
-    spdlog::info("<<< {}", HighlightMismatch(lines[line_no], line_out));
+    spdlog::info("in  #{:<5} : {}", line_no, line_in);
+    spdlog::info("out #{:<5} : {}", line_no, HighlightMismatch(lines[line_no], line_out));
 
     line_no += 1;
 
