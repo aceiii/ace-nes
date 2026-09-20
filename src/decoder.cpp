@@ -237,8 +237,8 @@ Instruction Decoder::Decode(u8 byte, u16 addr) {
     case 0x8D: return Instruction::From(Op::STA, AddressingMode::Absolute, byte, addr);
     case 0x9D: return Instruction::From(Op::STA, AddressingMode::IndexedAbsoluteX, byte, addr);
     case 0x99: return Instruction::From(Op::STA, AddressingMode::IndexedAbsoluteY, byte, addr);
-    case 0x81: return Instruction::From(Op::STA, AddressingMode::IndexedIndirectY, byte, addr);
-    case 0x91: return Instruction::From(Op::STA, AddressingMode::IndexedIndirectX, byte, addr);
+    case 0x81: return Instruction::From(Op::STA, AddressingMode::IndexedIndirectX, byte, addr);
+    case 0x91: return Instruction::From(Op::STA, AddressingMode::IndexedIndirectY, byte, addr);
 
     // STX
     case 0x86: return Instruction::From(Op::STX, AddressingMode::ZeroPage, byte, addr);

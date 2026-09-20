@@ -9,26 +9,20 @@
 namespace exec {
   constexpr const u16 kStackOffset = 0x0100;
 
-  inline u8 ReadZeroPage(Cpu* cpu, u8 addr) {
-    return cpu->Read(addr);
+  inline u8 AddrIndexedZeroPageX(Cpu* cpu, u8 next) {
+    return (next + cpu->registers.x) & 0xFF;
   }
 
-  inline u8 ReadAbsolute(Cpu* cpu, u16 addr) {
-    return cpu->Read(addr);
-  }
-
-  inline u8 IndexedZeroPageX(Cpu* cpu, u8 next) {
-    u8 addr = (next + cpu->registers.x) & 0xFF;
-    cpu->Tick();
-    return addr;
-  }
-
-  inline u8 IndexedZeroPageY(Cpu* cpu, u8 byte) {
+  inline u8 AddrIndexedZeroPageY(Cpu* cpu, u8 byte) {
     return (byte + cpu->registers.y) & 0xFF;
   }
 
-  inline u8 ReadIndexedIndirectY(Cpu* cpu, u8 byte) {
-    return cpu->Read(byte) | (cpu->Read((byte + 1) & 0xFF) >> 8) + cpu->registers.y;
+  inline u16 ReadIndexedIndirectY(Cpu* cpu, u8 byte) {
+    return cpu->Read(byte) | (cpu->Read((byte + 1) & 0xFF) << 8) + cpu->registers.y;
+  }
+
+  inline u16 ReadIndexedIndirectX(Cpu* cpu, u8 byte) {
+    return cpu->Read((byte + cpu->registers.x) & 0xFF) | (cpu->Read((byte + cpu->registers.x + 1) & 0xFF) << 8);
   }
 
   inline u8 ReadNextImmediate(Cpu* cpu) {
@@ -40,7 +34,7 @@ namespace exec {
   }
 
   inline u8 ReadNextAbsolute(Cpu* cpu) {
-    return ReadAbsolute(cpu, cpu->ReadNext16());
+    return cpu->Read(cpu->ReadNext16());
   }
 
   inline i8 ReadNextRelative(Cpu* cpu) {
@@ -56,11 +50,11 @@ namespace exec {
   }
 
   inline u8 ReadNextIndexedZeroPageX(Cpu* cpu) {
-    return cpu->Read(IndexedZeroPageX(cpu, cpu->ReadNext()));
+    return cpu->Read(AddrIndexedZeroPageX(cpu, cpu->ReadNext()));
   }
 
   inline u8 ReadNextIndexedZeroPageY(Cpu* cpu) {
-    return cpu->Read(IndexedZeroPageY(cpu, cpu->ReadNext()));
+    return cpu->Read(AddrIndexedZeroPageY(cpu, cpu->ReadNext()));
   }
 
   inline u8 ReadNextIndexedAbsoluteX(Cpu* cpu) {
@@ -69,10 +63,6 @@ namespace exec {
 
   inline u8 ReadNextIndexedAbsoluteY(Cpu* cpu) {
     return cpu->Read(cpu->ReadNext16() + cpu->registers.y);
-  }
-
-  inline u8 ReadIndexedIndirectX(Cpu* cpu, u8 byte) {
-    return cpu->Read((byte + cpu->registers.x) & 0xFF) | (cpu->Read((byte + cpu->registers.x + 1) & 0xFF) >> 8);
   }
 
   inline u8 ReadNextIndexedIndirectX(Cpu* cpu) {
@@ -96,15 +86,15 @@ namespace exec {
   }
 
   inline void WriteIndexedZeroPageX(Cpu* cpu, u8 byte, u8 val) {
-    return cpu->Write((byte + cpu->registers.x) & 0xFF, val);
+    return cpu->Write((byte + cpu->registers.x) % 0xFF, val);
   }
 
   inline void WriteNextIndexedZeroPageX(Cpu* cpu, u8 val) {
-    return cpu->Write((cpu->ReadNext() + cpu->registers.x) & 0xFF, val);
+    return cpu->Write((cpu->ReadNext() + cpu->registers.x) % 0xFF, val);
   }
 
   inline void WriteNextIndexedZeroPageY(Cpu* cpu, u8 val) {
-    cpu->Write((cpu->ReadNext() + cpu->registers.y) & 0xFF, val);
+    cpu->Write((cpu->ReadNext() + cpu->registers.y) % 0xFF, val);
   }
 
   inline void WriteNextIndexedAbsoluteX(Cpu* cpu, u8 val) {
@@ -116,7 +106,8 @@ namespace exec {
   }
 
   inline void WriteNextIndexedIndirectX(Cpu* cpu, u8 val) {
-    cpu->Write(cpu->Read((cpu->ReadNext() + cpu->registers.x) & 0xFF) | (cpu->Read((cpu->ReadNext() + cpu->registers.x + 1) & 0xFF) >> 8), val);
+    u8 addr = cpu->ReadNext();
+    cpu->Write(cpu->Read((addr + cpu->registers.x) & 0xFF) | (cpu->Read((addr + cpu->registers.x + 1) & 0xFF) << 8), val);
   }
 
   inline void WriteNextIndexedIndirectY(Cpu* cpu, u8 val) {
@@ -303,6 +294,7 @@ namespace exec {
   }
 
   u16 STA(const Instruction& instr, Cpu* cpu) {
+    spdlog::trace("pc before: {:02X}", cpu->registers.pc);
     switch (instr.addressing_mode) {
       case AddressingMode::ZeroPage: WriteNextZeroPage(cpu, cpu->registers.a); break;
       case AddressingMode::IndexedZeroPageX: WriteNextIndexedZeroPageX(cpu, cpu->registers.a); break;
@@ -313,6 +305,7 @@ namespace exec {
       case AddressingMode::IndexedIndirectY: WriteNextIndexedIndirectY(cpu, cpu->registers.a); break;
       default: std::unreachable();
     }
+    spdlog::trace("pc after: {:02X}", cpu->registers.pc);
     return cpu->registers.pc;
   }
 
@@ -599,6 +592,7 @@ namespace exec {
     cpu->registers.x += 1;
     cpu->registers.p.zero = cpu->registers.x == 0;
     cpu->registers.p.negative = (cpu->registers.x >> 7) & 0b1;
+    cpu->Tick();
     return cpu->registers.pc;
   }
 
@@ -682,14 +676,14 @@ namespace exec {
       }
       case AddressingMode::ZeroPage: {
         u8 addr = cpu->ReadNext();
-        val = ReadZeroPage(cpu, addr);
+        val = cpu->Read(addr);
         result = val >> 1;
         cpu->Tick();
         WriteZeroPage(cpu, addr, result);
         break;
       }
       case AddressingMode::IndexedZeroPageX: {
-        u8 addr = IndexedZeroPageX(cpu, cpu->ReadNext());
+        u8 addr = AddrIndexedZeroPageX(cpu, cpu->ReadNext());
         addr += cpu->registers.x;
         cpu->Tick();
         val = cpu->Read(addr);
@@ -737,14 +731,14 @@ namespace exec {
       }
       case AddressingMode::ZeroPage: {
         u8 addr = cpu->ReadNext();
-        val = ReadZeroPage(cpu, addr);
+        val = cpu->Read(addr);
         result = val << 1;
         cpu->Tick();
         WriteZeroPage(cpu, addr, result);
         break;
       }
       case AddressingMode::IndexedZeroPageX: {
-        u8 addr = IndexedZeroPageX(cpu, cpu->ReadNext());
+        u8 addr = AddrIndexedZeroPageX(cpu, cpu->ReadNext());
         addr += cpu->registers.x;
         cpu->Tick();
         val = cpu->Read(addr);
@@ -794,7 +788,7 @@ namespace exec {
       }
       case AddressingMode::ZeroPage: {
         u8 addr = cpu->ReadNext();
-        val = ReadZeroPage(cpu, addr);
+        val = cpu->Read(addr);
         u8 new_c = val & 0b1;
         result = ((val >> 1) & 0x7F) | ((cpu->registers.p.carry & 0b1) << 7);
         cpu->registers.p.carry = new_c;
@@ -803,7 +797,7 @@ namespace exec {
         break;
       }
       case AddressingMode::IndexedZeroPageX: {
-        u8 addr = IndexedZeroPageX(cpu, cpu->ReadNext());
+        u8 addr = AddrIndexedZeroPageX(cpu, cpu->ReadNext());
         addr += cpu->registers.x;
         cpu->Tick();
         val = cpu->Read(addr);
@@ -859,7 +853,7 @@ namespace exec {
       }
       case AddressingMode::ZeroPage: {
         u8 addr = cpu->ReadNext();
-        val = ReadZeroPage(cpu, addr);
+        val = cpu->Read(addr);
         u8 new_c = (val >> 7) & 0b1;
         result = ((val << 1) & 0xFE) | (cpu->registers.p.carry & 0b1);
         cpu->Tick();
@@ -867,7 +861,7 @@ namespace exec {
         break;
       }
       case AddressingMode::IndexedZeroPageX: {
-        u8 addr = IndexedZeroPageX(cpu, cpu->ReadNext());
+        u8 addr = AddrIndexedZeroPageX(cpu, cpu->ReadNext());
         addr += cpu->registers.x;
         cpu->Tick();
         val = cpu->Read(addr);
@@ -980,6 +974,7 @@ void Cpu::Step() {
       throw new std::logic_error("Not implemented");
   }
 
+  spdlog::trace("Setting new PC = {:02X}", new_pc);
   registers.pc = new_pc;
 }
 
