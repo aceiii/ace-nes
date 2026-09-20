@@ -45,5 +45,8 @@ public:
   u8 Read(u16 address);
   void Write(u16 address, u8 value);
 
+  u8 Increment(u16 address);
+  u8 Decrement(u16 address);
+
   void Tick();
 };

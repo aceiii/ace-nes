@@ -17,6 +17,14 @@ namespace exec {
     return (byte + cpu->registers.y) & 0xFF;
   }
 
+  inline u16 AddrIndexedAbsoluteX(Cpu* cpu, u16 addr) {
+    return addr + cpu->registers.x;
+  }
+
+  inline u16 AddrIndexedAbsoluteY(Cpu* cpu, u16 addr) {
+    return addr + cpu->registers.y;
+  }
+
   inline u16 ReadIndexedIndirectY(Cpu* cpu, u8 byte) {
     return cpu->Read(byte) | (cpu->Read((byte + 1) & 0xFF) << 8) + cpu->registers.y;
   }
@@ -58,11 +66,11 @@ namespace exec {
   }
 
   inline u8 ReadNextIndexedAbsoluteX(Cpu* cpu) {
-    return cpu->Read(cpu->ReadNext16() + cpu->registers.x);
+    return cpu->Read(AddrIndexedAbsoluteX(cpu, cpu->ReadNext()));
   }
 
   inline u8 ReadNextIndexedAbsoluteY(Cpu* cpu) {
-    return cpu->Read(cpu->ReadNext16() + cpu->registers.y);
+    return cpu->Read(AddrIndexedAbsoluteY(cpu, cpu->ReadNext()));
   }
 
   inline u8 ReadNextIndexedIndirectX(Cpu* cpu) {
@@ -98,7 +106,7 @@ namespace exec {
   }
 
   inline void WriteNextIndexedAbsoluteX(Cpu* cpu, u8 val) {
-    cpu->Write(cpu->ReadNext16() + cpu->registers.x, val);
+    cpu->Write(AddrIndexedAbsoluteX(cpu, cpu->ReadNext16()), val);
   }
 
   inline void WriteNextIndexedAbsoluteY(Cpu* cpu, u8 val) {
@@ -902,6 +910,38 @@ namespace exec {
     cpu->registers.p.negative = (result >> 7) & 0b1;
     return cpu->registers.pc;
   }
+
+  u16 INC(const Instruction& instr, Cpu* cpu) {
+    u8 addr;
+    switch (instr.addressing_mode) {
+      case AddressingMode::ZeroPage: addr = cpu->ReadNext(); break;
+      case AddressingMode::IndexedZeroPageX: addr = AddrIndexedZeroPageX(cpu, cpu->ReadNext()); break;
+      case AddressingMode::Absolute: addr = cpu->ReadNext16(); break;
+      case AddressingMode::IndexedAbsoluteX: addr = AddrIndexedAbsoluteX(cpu, cpu->ReadNext16()); break;
+      default: std::unreachable();
+    }
+
+    u8 result = cpu->Increment(addr);
+    cpu->registers.p.zero = result == 0;
+    cpu->registers.p.negative = (result >> 7) & 0b1;
+    return cpu->registers.pc;
+  }
+
+  u16 DEC(const Instruction& instr, Cpu* cpu) {
+    u16 addr;
+    switch (instr.addressing_mode) {
+      case AddressingMode::ZeroPage: addr = cpu->ReadNext(); break;
+      case AddressingMode::IndexedZeroPageX: addr = AddrIndexedZeroPageX(cpu, cpu->ReadNext()); break;
+      case AddressingMode::Absolute: addr = cpu->ReadNext16(); break;
+      case AddressingMode::IndexedAbsoluteX: addr = AddrIndexedAbsoluteX(cpu, cpu->ReadNext16()); break;
+      default: std::unreachable();
+    }
+
+    u8 result = cpu->Decrement(addr);
+    cpu->registers.p.zero = result == 0;
+    cpu->registers.p.negative = (result >> 7) & 0b1;
+    return cpu->registers.pc;
+  }
 }
 
 void Cpu::Step() {
@@ -969,6 +1009,8 @@ void Cpu::Step() {
     case Op::ASL: new_pc = exec::ASL(instr, this); break;
     case Op::ROR: new_pc = exec::ROR(instr, this); break;
     case Op::ROL: new_pc = exec::ROL(instr, this); break;
+    case Op::INC: new_pc = exec::INC(instr, this); break;
+    case Op::DEC: new_pc = exec::DEC(instr, this); break;
     default:
       spdlog::critical("Instruction not implemented: {}({:02X}) @ 0x{:02X}", magic_enum::enum_name(instr.op), instr.code, instr.addr);
       throw new std::logic_error("Not implemented");
@@ -999,6 +1041,20 @@ u8 Cpu::Read(u16 address) {
 void Cpu::Write(u16 address, u8 value) {
   bus->Write(address, value);
   Tick();
+}
+
+u8 Cpu::Increment(u16 address) {
+  u8 result = bus->Read(address) + 1;
+  bus->Write(address, result);
+  Tick();
+  return result;
+}
+
+u8 Cpu::Decrement(u16 address) {
+  u8 result = bus->Read(address) - 1;
+  bus->Write(address, result);
+  Tick();
+  return result;
 }
 
 void Cpu::Tick() {
