@@ -82,8 +82,8 @@ Instruction Decoder::Decode(u8 byte, u16 addr) {
     case 0xCD: return Instruction::From(Op::CMP, AddressingMode::Absolute, byte, addr);
     case 0xDD: return Instruction::From(Op::CMP, AddressingMode::IndexedAbsoluteX, byte, addr);
     case 0xD9: return Instruction::From(Op::CMP, AddressingMode::IndexedAbsoluteY, byte, addr);
-    case 0xC1: return Instruction::From(Op::CMP, AddressingMode::IndexedZeroPageX, byte, addr);
-    case 0xD1: return Instruction::From(Op::CMP, AddressingMode::IndexedZeroPageY, byte, addr);
+    case 0xC1: return Instruction::From(Op::CMP, AddressingMode::IndexedIndirectX, byte, addr);
+    case 0xD1: return Instruction::From(Op::CMP, AddressingMode::IndexedIndirectY, byte, addr);
 
     // CPX
     case 0xE0: return Instruction::From(Op::CPX, AddressingMode::Immediate, byte, addr);
