@@ -121,16 +121,30 @@ static std::string LogLine(const Instruction& instr, const Registers& regs, Test
       break;
   }
 
-  bool abs_include_assignment;
+  // bool abs_include_assignment;
+  // switch (instr.op) {
+  //   case Op::BIT:
+  //   case Op::LDA:
+  //   case Op::LDX:
+  //   case Op::LDY:
+  //   case Op::STA:
+  //   case Op::STX:
+  //   case Op::STY:
+  //     abs_include_assignment = true;
+  //     break;
+  //   default:
+  //     abs_include_assignment = false;
+  //     break;
+  // }
+
+  bool abs_exclude_assignment;
   switch (instr.op) {
-    case Op::LDA:
-    case Op::LDX:
-    case Op::STX:
-    case Op::STA:
-      abs_include_assignment = true;
+    case Op::JMP:
+    case Op::JSR:
+      abs_exclude_assignment = true;
       break;
     default:
-      abs_include_assignment = false;
+      abs_exclude_assignment = false;
       break;
   }
 
@@ -148,7 +162,7 @@ static std::string LogLine(const Instruction& instr, const Registers& regs, Test
       break;
     case AddressingMode::Absolute:
       instr_str += std::format(" ${:04X}", arg);
-      if (abs_include_assignment) {
+      if (!abs_exclude_assignment) {
         instr_str += std::format(" = {:02X}", bus.Read(arg));
       }
       break;
