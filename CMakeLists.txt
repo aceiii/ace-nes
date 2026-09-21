@@ -22,6 +22,7 @@ add_subdirectory(external/nativefiledialog-extended)
 add_subdirectory(external/tomlplusplus)
 
 add_library(ace-nes-shared STATIC
+    src/address.hpp
     src/buffer.hpp
     src/bus.hpp
     src/cart.hpp

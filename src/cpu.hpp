@@ -3,6 +3,7 @@
 #include <bit>
 #include <span>
 
+#include "bus.hpp"
 #include "types.hpp"
 
 

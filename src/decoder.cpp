@@ -169,6 +169,39 @@ Instruction Decoder::Decode(u8 byte, u16 addr) {
 
     // NOP
     case 0xEA: return Instruction::From(Op::NOP, AddressingMode::Implicit, byte, addr);
+    // unofficial NOP
+    case 0x1A: return Instruction::From(Op::NOP, AddressingMode::Implicit, byte, addr, 0, true);
+    case 0x3A: return Instruction::From(Op::NOP, AddressingMode::Implicit, byte, addr, 0, true);
+    case 0x5A: return Instruction::From(Op::NOP, AddressingMode::Implicit, byte, addr, 0, true);
+    case 0x7A: return Instruction::From(Op::NOP, AddressingMode::Implicit, byte, addr, 0, true);
+    case 0xDA: return Instruction::From(Op::NOP, AddressingMode::Implicit, byte, addr, 0, true);
+    case 0xFA: return Instruction::From(Op::NOP, AddressingMode::Implicit, byte, addr, 0, true);
+    // SKB #i
+    case 0x80: return Instruction::From(Op::NOP, AddressingMode::Immediate, byte, addr, 0, true);
+    case 0x82: return Instruction::From(Op::NOP, AddressingMode::Immediate, byte, addr, 0, true);
+    case 0x89: return Instruction::From(Op::NOP, AddressingMode::Immediate, byte, addr, 0, true);
+    case 0xC2: return Instruction::From(Op::NOP, AddressingMode::Immediate, byte, addr, 0, true);
+    case 0xE2: return Instruction::From(Op::NOP, AddressingMode::Immediate, byte, addr, 0, true);
+    // IGN a
+    case 0x0C: return Instruction::From(Op::NOP, AddressingMode::Absolute, byte, addr, 0, true);
+    // IGN a,X
+    case 0x1C: return Instruction::From(Op::NOP, AddressingMode::IndexedAbsoluteX, byte, addr, 0, true);
+    case 0x3C: return Instruction::From(Op::NOP, AddressingMode::IndexedAbsoluteX, byte, addr, 0, true);
+    case 0x5C: return Instruction::From(Op::NOP, AddressingMode::IndexedAbsoluteX, byte, addr, 0, true);
+    case 0x7C: return Instruction::From(Op::NOP, AddressingMode::IndexedAbsoluteX, byte, addr, 0, true);
+    case 0xDC: return Instruction::From(Op::NOP, AddressingMode::IndexedAbsoluteX, byte, addr, 0, true);
+    case 0xFC: return Instruction::From(Op::NOP, AddressingMode::IndexedAbsoluteX, byte, addr, 0, true);
+    // IGN d
+    case 0x04: return Instruction::From(Op::NOP, AddressingMode::Implicit, byte, addr, 1, true);
+    case 0x44: return Instruction::From(Op::NOP, AddressingMode::Implicit, byte, addr, 1, true);
+    case 0x64: return Instruction::From(Op::NOP, AddressingMode::Implicit, byte, addr, 1, true);
+    // IGN d,X
+    case 0x14: return Instruction::From(Op::NOP, AddressingMode::IndexedZeroPageX, byte, addr, 0, true);
+    case 0x34: return Instruction::From(Op::NOP, AddressingMode::IndexedZeroPageX, byte, addr, 0, true);
+    case 0x54: return Instruction::From(Op::NOP, AddressingMode::IndexedZeroPageX, byte, addr, 0, true);
+    case 0x74: return Instruction::From(Op::NOP, AddressingMode::IndexedZeroPageX, byte, addr, 0, true);
+    case 0xD4: return Instruction::From(Op::NOP, AddressingMode::IndexedZeroPageX, byte, addr, 0, true);
+    case 0xF4: return Instruction::From(Op::NOP, AddressingMode::IndexedZeroPageX, byte, addr, 0, true);
 
     // ORA
     case 0x09: return Instruction::From(Op::ORA, AddressingMode::Immediate, byte, addr);

@@ -45,12 +45,17 @@ public:
       return 0x00;
     })();
 
-    spdlog::trace("TestBus::Read(0x{:04X}) => 0x{:02X}", address, val);
+    if (mode == BusMode::Normal) {
+      spdlog::trace("TestBus::Read(0x{:04X}) => 0x{:02X}", address, val);
+    }
+
     return val;
   }
 
   void Write(u16 address, u8 value, BusMode mode = BusMode::Normal) override {
-    spdlog::trace("TestBus::Write(0x{:04X}, 0x{:02x})", address, value);
+    if (mode == BusMode::Normal) {
+      spdlog::trace("TestBus::Write(0x{:04X}, 0x{:02x})", address, value);
+    }
 
     if (address < 0x2000) {
       ram[address % 0x0800] = value;
@@ -121,22 +126,6 @@ static std::string LogLine(const Instruction& instr, const Registers& regs, Test
       break;
   }
 
-  // bool abs_include_assignment;
-  // switch (instr.op) {
-  //   case Op::BIT:
-  //   case Op::LDA:
-  //   case Op::LDX:
-  //   case Op::LDY:
-  //   case Op::STA:
-  //   case Op::STX:
-  //   case Op::STY:
-  //     abs_include_assignment = true;
-  //     break;
-  //   default:
-  //     abs_include_assignment = false;
-  //     break;
-  // }
-
   bool abs_exclude_assignment;
   switch (instr.op) {
     case Op::JMP:
@@ -148,9 +137,17 @@ static std::string LogLine(const Instruction& instr, const Registers& regs, Test
       break;
   }
 
-  std::string instr_str = std::format("{:3}", magic_enum::enum_name(instr.op));
+  std::string instr_str = std::format("{}{:3}", instr.illegal ? '*' : ' ', magic_enum::enum_name(instr.op));
   switch (instr.addressing_mode) {
-    case AddressingMode::Implicit: break;
+    case AddressingMode::Implicit: {
+      if (instr.num_bytes == 2) {
+        instr_str += std::format(" ${:02X} = {:02X}", lo, bus.Read(lo, BusMode::Direct));
+      } else if (instr.num_bytes == 3) {
+        u16 addr = arg + regs.x;
+        instr_str += std::format(" ${:04X},X @ {:04X} = {:02X}", arg, addr, bus.Read(addr, BusMode::Direct));
+      }
+      break;
+    }
     case AddressingMode::Accumulator:
       instr_str += " A";
       break;
@@ -158,48 +155,51 @@ static std::string LogLine(const Instruction& instr, const Registers& regs, Test
       instr_str += std::format(" #${:02X}", lo);
       break;
     case AddressingMode::ZeroPage:
-      instr_str += std::format(" ${:02X} = {:02X}", lo, bus.Read(lo));
+      instr_str += std::format(" ${:02X} = {:02X}", lo, bus.Read(lo, BusMode::Direct));
       break;
     case AddressingMode::Absolute:
       instr_str += std::format(" ${:04X}", arg);
       if (!abs_exclude_assignment) {
-        instr_str += std::format(" = {:02X}", bus.Read(arg));
+        instr_str += std::format(" = {:02X}", bus.Read(arg, BusMode::Direct));
       }
       break;
     case AddressingMode::Relative:
       instr_str += std::format(" ${:04X}", pc + instr.num_bytes + static_cast<i8>(lo));
       break;
-    case AddressingMode::Indirect:
-      instr_str += std::format(" (${:04X}) = {:04x}", arg, pc);
+    case AddressingMode::Indirect: {
+      u16 addr = bus.Read(arg, BusMode::Direct) | (bus.Read((arg & 0xFF00) | ((arg + 1) & 0xFF), BusMode::Direct) << 8);
+      instr_str += std::format(" (${:04X}) = {:04X}", arg, addr);
       break;
-    case AddressingMode::IndexedZeroPageX:
-      instr_str += std::format(" (${:02X},X) @ {:02X} = {:02X}", lo, lo + regs.x, bus.Read(lo + regs.x));
+    }
+    case AddressingMode::IndexedZeroPageX: {
+      u8 addr = lo + regs.x;
+      instr_str += std::format(" ${:02X},X @ {:02X} = {:02X}", lo, addr, bus.Read(addr, BusMode::Direct));
       break;
-    case AddressingMode::IndexedZeroPageY:
-      instr_str += std::format(" (${:02X}),Y @ {:02X} = {:02X}", lo, lo + regs.y, bus.Read(lo + regs.y));
+    }
+    case AddressingMode::IndexedZeroPageY: {
+      u8 addr =  lo + regs.y;
+      instr_str += std::format(" ${:02X},Y @ {:02X} = {:02X}", lo, addr, bus.Read(addr, BusMode::Direct));
       break;
-    case AddressingMode::IndexedAbsoluteX:
-    {
+    }
+    case AddressingMode::IndexedAbsoluteX: {
       auto addr = static_cast<u16>(arg + regs.x);
-      instr_str += std::format(" ${:04X},X @ {:04X} = {:02X}", arg, addr, bus.Read(addr));
+      instr_str += std::format(" ${:04X},X @ {:04X} = {:02X}", arg, addr, bus.Read(addr, BusMode::Direct));
       break;
     }
-    case AddressingMode::IndexedAbsoluteY:
-    {
+    case AddressingMode::IndexedAbsoluteY: {
       auto addr = static_cast<u16>(arg + regs.y);
-      instr_str += std::format(" ${:04X},Y @ {:04X} = {:02X}", arg, addr, bus.Read(addr));
+      instr_str += std::format(" ${:04X},Y @ {:04X} = {:02X}", arg, addr, bus.Read(addr, BusMode::Direct));
       break;
     }
-    case AddressingMode::IndexedIndirectX:
-    {
-      u16 addr = bus.Read((lo + regs.x) & 0xFF) | (bus.Read((lo + regs.x + 1) & 0xFF) << 8);
-      instr_str += std::format(" (${:02X},X) @ {:02X} = {:04X} = {:02X}", lo, (lo + regs.x) & 0xFF, addr, bus.Read(addr));
+    case AddressingMode::IndexedIndirectX: {
+      u16 addr = bus.Read((lo + regs.x) & 0xFF, BusMode::Direct) | (bus.Read((lo + regs.x + 1) & 0xFF, BusMode::Direct) << 8);
+      instr_str += std::format(" (${:02X},X) @ {:02X} = {:04X} = {:02X}", lo, (lo + regs.x) & 0xFF, addr, bus.Read(addr, BusMode::Direct));
       break;
     }
-    case AddressingMode::IndexedIndirectY:
-    {
-      u16 addr = (bus.Read(lo) | (bus.Read((lo + 1) & 0xFF) << 8)) + regs.y;
-      instr_str += std::format(" (${:02X}),Y @ {:04X} = {:04X} = {:02X}", lo, (lo + regs.y) & 0xFF, addr, bus.Read(addr));
+    case AddressingMode::IndexedIndirectY: {
+      u16 base = (bus.Read(lo, BusMode::Direct) | (bus.Read((lo + 1) & 0xFF, BusMode::Direct) << 8));
+      u16 addr = base + regs.y;
+      instr_str += std::format(" (${:02X}),Y = {:04X} @ {:04X} = {:02X}", lo, base, addr, bus.Read(addr, BusMode::Direct));
       break;
     }
   }
@@ -209,7 +209,7 @@ static std::string LogLine(const Instruction& instr, const Registers& regs, Test
 
   std::string regs_str = std::format("A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} PPU:{:3},{:3} CYC:{}", regs.a, regs.x, regs.y, regs.p.val, regs.sp, ppu_x, ppu_y, cyc);
 
-  return std::format("{:04X}  {:8}  {:30}  {}", pc, bytes_str, instr_str, regs_str);
+  return std::format("{:04X}  {:8} {:31}  {}", pc, bytes_str, instr_str, regs_str);
 }
 
 static bool SetLoggingLevel(const std::string &level_name) {
@@ -317,7 +317,7 @@ auto main(int argc, char *argv[]) -> int {
   auto early_exit = program.get<bool>("--early-exit");
   auto exit_at = program.get<int>("--exit-at");
 
-  while (line_no < lines.size()) {
+  while (line_no < lines.size() && (exit_at == -1 || line_no <= exit_at)) {
     u16 pc = cpu.registers.pc;
 
     auto byte = bus.Read(pc, BusMode::Direct);
@@ -334,14 +334,13 @@ auto main(int argc, char *argv[]) -> int {
 
     spdlog::info("in  #{:<5} : {}", line_no, line_in);
     spdlog::info("out #{:<5} : {}", line_no, HighlightMismatch(lines[line_no], line_out));
+    if (early_exit && line_in != line_out) {
+      break;
+    }
 
     cpu.Step();
 
     line_no += 1;
-
-    if ((early_exit && line_in != line_out) || (exit_at && exit_at == line_no)) {
-      break;
-    }
   }
 
   spdlog::info("Exiting.");

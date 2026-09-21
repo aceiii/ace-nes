@@ -32,12 +32,13 @@ struct Instruction {
   Op op;
   AddressingMode addressing_mode;
   u8 num_bytes;
+  bool illegal;
 
-  static auto From(Op op, AddressingMode mode, u8 byte, u16 addr, u8 skip_bytes = 0) {
+  static auto From(Op op, AddressingMode mode, u8 byte, u16 addr, u8 skip_bytes = 0, bool illegal = false) {
     u8 num_bytes;
     if (mode == AddressingMode::Implicit || mode == AddressingMode::Accumulator) {
       num_bytes = 1;
-    } else if (mode == AddressingMode::Absolute || mode == AddressingMode::IndexedAbsoluteX || mode == AddressingMode::IndexedAbsoluteY) {
+    } else if (mode == AddressingMode::Absolute || mode == AddressingMode::IndexedAbsoluteX || mode == AddressingMode::IndexedAbsoluteY || mode == AddressingMode::Indirect) {
       num_bytes = 3;
     } else {
       num_bytes = 2;
@@ -51,6 +52,7 @@ struct Instruction {
       .op = op,
       .addressing_mode = mode,
       .num_bytes = static_cast<u8>(num_bytes + skip_bytes),
+      .illegal = illegal,
     };
 
     return instr;
