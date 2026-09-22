@@ -254,6 +254,7 @@ Instruction Decoder::Decode(u8 byte, u16 addr) {
     case 0xF9: return Instruction::From(Op::SBC, AddressingMode::IndexedAbsoluteY, byte, addr);
     case 0xE1: return Instruction::From(Op::SBC, AddressingMode::IndexedIndirectX, byte, addr);
     case 0xF1: return Instruction::From(Op::SBC, AddressingMode::IndexedIndirectY, byte, addr);
+    case 0xEB: return Instruction::From(Op::SBC, AddressingMode::Immediate, byte, addr, 0, true);
 
     // SEC
     case 0x38: return Instruction::From(Op::SEC, AddressingMode::Implicit, byte, addr);
@@ -300,6 +301,74 @@ Instruction Decoder::Decode(u8 byte, u16 addr) {
 
     // TYA
     case 0x98: return Instruction::From(Op::TYA, AddressingMode::Implicit, byte, addr);
+
+    // LAX
+    case 0xA3: return Instruction::From(Op::LAX, AddressingMode::IndexedIndirectX, byte, addr, 0, true);
+    case 0xA7: return Instruction::From(Op::LAX, AddressingMode::ZeroPage, byte, addr, 0, true);
+    case 0xAF: return Instruction::From(Op::LAX, AddressingMode::Absolute, byte, addr, 0, true);
+    case 0xB3: return Instruction::From(Op::LAX, AddressingMode::IndexedIndirectY, byte, addr, 0, true);
+    case 0xB7: return Instruction::From(Op::LAX, AddressingMode::IndexedZeroPageY, byte, addr, 0, true);
+    case 0xBF: return Instruction::From(Op::LAX, AddressingMode::IndexedAbsoluteY, byte, addr, 0, true);
+
+    // SAX
+    case 0x83: return Instruction::From(Op::SAX, AddressingMode::IndexedIndirectX, byte, addr, 0, true);
+    case 0x87: return Instruction::From(Op::SAX, AddressingMode::ZeroPage, byte, addr, 0, true);
+    case 0x8F: return Instruction::From(Op::SAX, AddressingMode::Absolute, byte, addr, 0, true);
+    case 0x97: return Instruction::From(Op::SAX, AddressingMode::IndexedZeroPageY, byte, addr, 0, true);
+
+    // DCP
+    case 0xC3: return Instruction::From(Op::DCP, AddressingMode::IndexedIndirectX, byte, addr, 0, true);
+    case 0xC7: return Instruction::From(Op::DCP, AddressingMode::ZeroPage, byte, addr, 0, true);
+    case 0xCF: return Instruction::From(Op::DCP, AddressingMode::Absolute, byte, addr, 0, true);
+    case 0xD3: return Instruction::From(Op::DCP, AddressingMode::IndexedIndirectY, byte, addr, 0, true);
+    case 0xD7: return Instruction::From(Op::DCP, AddressingMode::IndexedZeroPageX, byte, addr, 0, true);
+    case 0xDB: return Instruction::From(Op::DCP, AddressingMode::IndexedAbsoluteY, byte, addr, 0, true);
+    case 0xDF: return Instruction::From(Op::DCP, AddressingMode::IndexedAbsoluteX, byte, addr, 0, true);
+
+    // ISB(ISC)
+    case 0xE3: return Instruction::From(Op::ISB, AddressingMode::IndexedIndirectX, byte, addr, 0, true);
+    case 0xE7: return Instruction::From(Op::ISB, AddressingMode::ZeroPage, byte, addr, 0, true);
+    case 0xEF: return Instruction::From(Op::ISB, AddressingMode::Absolute, byte, addr, 0, true);
+    case 0xF3: return Instruction::From(Op::ISB, AddressingMode::IndexedIndirectY, byte, addr, 0, true);
+    case 0xF7: return Instruction::From(Op::ISB, AddressingMode::IndexedZeroPageX, byte, addr, 0, true);
+    case 0xFB: return Instruction::From(Op::ISB, AddressingMode::IndexedAbsoluteY, byte, addr, 0, true);
+    case 0xFF: return Instruction::From(Op::ISB, AddressingMode::IndexedAbsoluteX, byte, addr, 0, true);
+
+    // SLO
+    case 0x03: return Instruction::From(Op::SLO, AddressingMode::IndexedIndirectX, byte, addr, 0, true);
+    case 0x07: return Instruction::From(Op::SLO, AddressingMode::ZeroPage, byte, addr, 0, true);
+    case 0x0F: return Instruction::From(Op::SLO, AddressingMode::Absolute, byte, addr, 0, true);
+    case 0x13: return Instruction::From(Op::SLO, AddressingMode::IndexedIndirectY, byte, addr, 0, true);
+    case 0x17: return Instruction::From(Op::SLO, AddressingMode::IndexedZeroPageX, byte, addr, 0, true);
+    case 0x1B: return Instruction::From(Op::SLO, AddressingMode::IndexedAbsoluteY, byte, addr, 0, true);
+    case 0x1F: return Instruction::From(Op::SLO, AddressingMode::IndexedAbsoluteX, byte, addr, 0, true);
+
+    // SRE
+    case 0x43: return Instruction::From(Op::SRE, AddressingMode::IndexedIndirectX, byte, addr, 0, true);
+    case 0x47: return Instruction::From(Op::SRE, AddressingMode::ZeroPage, byte, addr, 0, true);
+    case 0x4F: return Instruction::From(Op::SRE, AddressingMode::Absolute, byte, addr, 0, true);
+    case 0x53: return Instruction::From(Op::SRE, AddressingMode::IndexedIndirectY, byte, addr, 0, true);
+    case 0x57: return Instruction::From(Op::SRE, AddressingMode::IndexedZeroPageX, byte, addr, 0, true);
+    case 0x5B: return Instruction::From(Op::SRE, AddressingMode::IndexedAbsoluteY, byte, addr, 0, true);
+    case 0x5F: return Instruction::From(Op::SRE, AddressingMode::IndexedAbsoluteX, byte, addr, 0, true);
+
+    // RLA
+    case 0x23: return Instruction::From(Op::RLA, AddressingMode::IndexedIndirectX, byte, addr, 0, true);
+    case 0x27: return Instruction::From(Op::RLA, AddressingMode::ZeroPage, byte, addr, 0, true);
+    case 0x2F: return Instruction::From(Op::RLA, AddressingMode::Absolute, byte, addr, 0, true);
+    case 0x33: return Instruction::From(Op::RLA, AddressingMode::IndexedIndirectY, byte, addr, 0, true);
+    case 0x37: return Instruction::From(Op::RLA, AddressingMode::IndexedZeroPageX, byte, addr, 0, true);
+    case 0x3B: return Instruction::From(Op::RLA, AddressingMode::IndexedAbsoluteY, byte, addr, 0, true);
+    case 0x3F: return Instruction::From(Op::RLA, AddressingMode::IndexedAbsoluteX, byte, addr, 0, true);
+
+    // RRA
+    case 0x63: return Instruction::From(Op::RRA, AddressingMode::IndexedIndirectX, byte, addr, 0, true);
+    case 0x67: return Instruction::From(Op::RRA, AddressingMode::ZeroPage, byte, addr, 0, true);
+    case 0x6F: return Instruction::From(Op::RRA, AddressingMode::Absolute, byte, addr, 0, true);
+    case 0x73: return Instruction::From(Op::RRA, AddressingMode::IndexedIndirectY, byte, addr, 0, true);
+    case 0x77: return Instruction::From(Op::RRA, AddressingMode::IndexedZeroPageX, byte, addr, 0, true);
+    case 0x7B: return Instruction::From(Op::RRA, AddressingMode::IndexedAbsoluteY, byte, addr, 0, true);
+    case 0x7F: return Instruction::From(Op::RRA, AddressingMode::IndexedAbsoluteX, byte, addr, 0, true);
   }
   return Instruction::Unknown(byte, addr);
 }

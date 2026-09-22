@@ -58,4 +58,14 @@ enum class Op {
   TXA,
   TXS,
   TYA,
+
+  // Unofficial
+  LAX,
+  SAX,
+  DCP,
+  ISB,
+  RLA,
+  RRA,
+  SLO,
+  SRE,
 };
