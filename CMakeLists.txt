@@ -35,6 +35,8 @@ add_library(ace-nes-shared STATIC
     src/file.cpp
     src/instruction.hpp
     src/op.hpp
+    src/string.hpp
+    src/string.cpp
     src/types.hpp
 )
 target_link_libraries(ace-nes-shared spdlog)

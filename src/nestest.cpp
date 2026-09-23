@@ -1,6 +1,7 @@
 #include <print>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <argparse/argparse.hpp>
 #include <magic_enum/magic_enum.hpp>
 #include <spdlog/spdlog.h>
@@ -77,10 +78,10 @@ public:
 };
 
 static inline auto Red(std::string_view sv) {
-  return std::format("\033[1;31m{}\033[0m\n", sv);
+  return std::format("\033[1;31m{}\033[0m", sv);
 }
 
-static std::string HighlightMismatch(std::string_view input, std::string_view output) {
+static std::tuple<int, std::string> CompareAndHighlightMismatch(std::string_view input, std::string_view output) {
   int idx = -1;
   int n = std::max(input.size(), output.size());
   for (int i = 0; i < n; i++) {
@@ -92,19 +93,20 @@ static std::string HighlightMismatch(std::string_view input, std::string_view ou
     auto c1 = input[i];
     auto c2 = output[i];
     if (c1 != c2) {
+      spdlog::info("Mismatch found {:02x} != {:02x}", static_cast<u8>(c1), static_cast<u8>(c2));
       idx = i;
       break;
     }
   }
 
   if (idx == -1) {
-    return std::string(output);
+    return std::make_tuple(idx, std::string(output));
   }
   if (idx == 0) {
-    return Red(output);
+    return std::make_tuple(idx, Red(output));
   }
 
-  return std::string(output.substr(0, idx)) + Red(output.substr(idx));
+  return std::make_tuple(idx, std::string(output.substr(0, idx)) + Red(output.substr(idx)));
 }
 
 static std::string LogLine(const Instruction& instr, const Registers& regs, TestBus& bus, u64 cyc) {
@@ -329,12 +331,17 @@ auto main(int argc, char *argv[]) -> int {
       instr.hi = bus.Read(pc + 2, BusMode::Direct);
     }
 
-    const auto& line_in = lines[line_no].substr(0, 73);
-    std::string line_out = std::format("{}", LogLine(instr, cpu.registers, bus, cpu.cycles)).substr(0, 73);
+    const auto line_in = lines[line_no].substr(0, 73) + lines[line_no].substr(85, 10);
+    const auto log_line = LogLine(instr, cpu.registers, bus, cpu.cycles);
+    const auto line_out = log_line.substr(0, 73) + log_line.substr(85, 10);
+
+    const auto [mismatch, highlighted_line_out] = CompareAndHighlightMismatch(line_in, line_out);
 
     spdlog::info("in  #{:<5} : {}", line_no, line_in);
-    spdlog::info("out #{:<5} : {}", line_no, HighlightMismatch(lines[line_no], line_out));
-    if (early_exit && line_in != line_out) {
+    spdlog::info("out #{:<5} : {}", line_no, highlighted_line_out);
+
+    if (early_exit && mismatch > -1) {
+      spdlog::error("Mismatch found at: {}", mismatch);
       break;
     }
 

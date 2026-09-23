@@ -3,6 +3,7 @@
 #include <iterator>
 
 #include "file.hpp"
+#include "string.hpp"
 
 using file::Error;
 
@@ -47,7 +48,7 @@ file::Result<std::vector<std::string>> file::ReadLines(std::string_view path) {
   std::string line;
 
   while (std::getline(input, line)) {
-    lines.push_back(line);
+    lines.push_back(std::string(string::TrimTrailing(line)));
   }
 
   return lines;
