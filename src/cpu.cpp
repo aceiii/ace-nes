@@ -10,12 +10,29 @@
 namespace exec {
   constexpr const u16 kStackOffset = 0x0100;
 
-  inline u16 ReadIndexedIndirectY(Cpu* cpu, u8 byte) {
-    return (cpu->Read(byte) | (cpu->Read((byte + 1) & 0xFF) << 8)) + cpu->registers.y;
+  inline void AddOffsetToPC(Cpu* cpu, i8 offset) {
+    u8 base = cpu->registers.pc >> 8;
+    cpu->registers.pc += offset;
+    if (((cpu->registers.pc >> 8) & 0xFF) != base) {
+      cpu->Tick();
+    }
+  }
+
+  inline u16 ReadIndexedIndirectY(Cpu* cpu, u8 byte, bool force_tick = false) {
+    u8 lo = cpu->Read(byte);
+    u8 hi = cpu->Read((byte + 1) & 0xFF);
+    u16 result = (lo | (hi << 8)) + cpu->registers.y;
+    if (force_tick || hi != ((result >> 8) & 0xFF)) {
+      cpu->Tick();
+    }
+    return result;
   }
 
   inline u16 ReadIndexedIndirectX(Cpu* cpu, u8 byte) {
-    return cpu->Read((byte + cpu->registers.x) & 0xFF) | (cpu->Read((byte + cpu->registers.x + 1) & 0xFF) << 8);
+    u8 lo = cpu->Read((byte + cpu->registers.x) & 0xFF);
+    u8 hi = cpu->Read((byte + cpu->registers.x + 1) & 0xFF);
+    cpu->Tick();
+    return lo | (hi << 8);
   }
 
   inline u8 ReadNextImmediate(Cpu* cpu) {
@@ -75,28 +92,27 @@ namespace exec {
   }
 
   inline void WriteNextIndexedZeroPageX(Cpu* cpu, u8 val) {
-    return cpu->Write((cpu->ReadNext() + cpu->registers.x) & 0xFF, val);
+    return cpu->Write(address::IndexedZeroPageX(cpu, cpu->ReadNext()), val);
   }
 
   inline void WriteNextIndexedZeroPageY(Cpu* cpu, u8 val) {
-    cpu->Write((cpu->ReadNext() + cpu->registers.y) & 0xFF, val);
+    cpu->Write(address::IndexedZeroPageY(cpu, cpu->ReadNext()), val);
   }
 
   inline void WriteNextIndexedAbsoluteX(Cpu* cpu, u8 val) {
-    cpu->Write(address::IndexedAbsoluteX(cpu, cpu->ReadNext16()), val);
+    cpu->Write(address::IndexedAbsoluteX(cpu, cpu->ReadNext16(), true), val);
   }
 
   inline void WriteNextIndexedAbsoluteY(Cpu* cpu, u8 val) {
-    cpu->Write(cpu->ReadNext16() + cpu->registers.y, val);
+    cpu->Write(address::IndexedAbsoluteY(cpu, cpu->ReadNext16(), true), val);
   }
 
   inline void WriteNextIndexedIndirectX(Cpu* cpu, u8 val) {
-    u8 addr = cpu->ReadNext();
-    cpu->Write(cpu->Read((addr + cpu->registers.x) & 0xFF) | (cpu->Read((addr + cpu->registers.x + 1) & 0xFF) << 8), val);
+    cpu->Write(ReadIndexedIndirectX(cpu, cpu->ReadNext()), val);
   }
 
   inline void WriteNextIndexedIndirectY(Cpu* cpu, u8 val) {
-    cpu->Write(ReadIndexedIndirectY(cpu, cpu->ReadNext()), val);
+    cpu->Write(ReadIndexedIndirectY(cpu, cpu->ReadNext(), true), val);
   }
 
   inline void Push8(Cpu* cpu, u8 val) {
@@ -125,12 +141,15 @@ namespace exec {
   }
 
   u16 NOP(const Instruction& instr, Cpu* cpu) {
-    spdlog::trace("NOP({:02X}) num_bytes={}", instr.code, instr.num_bytes);
-    int i = instr.num_bytes - 1;
-    while (i--) {
-      cpu->ReadNext();
+    switch (instr.addressing_mode) {
+      case AddressingMode::Implicit: cpu->Tick(); break;
+      case AddressingMode::Immediate: ReadNextImmediate(cpu); break;
+      case AddressingMode::Absolute: ReadNextAbsolute(cpu); break;
+      case AddressingMode::ZeroPage: ReadNextZeroPage(cpu); break;
+      case AddressingMode::IndexedZeroPageX: ReadNextIndexedZeroPageX(cpu); break;
+      case AddressingMode::IndexedAbsoluteX: ReadNextIndexedAbsoluteX(cpu); break;
+      default: std::unreachable();
     }
-    cpu->Tick();
     return cpu->registers.pc;
   }
 
@@ -152,12 +171,16 @@ namespace exec {
     assert(instr.addressing_mode == AddressingMode::Absolute);
     u16 addr = cpu->ReadNext16();
     Push16(cpu, cpu->registers.pc-1);
+    cpu->Tick();
     return addr;
   }
 
   u16 RTS(const Instruction& instr, Cpu* cpu) {
     assert(instr.addressing_mode == AddressingMode::Implicit);
     u16 pc = Pop16(cpu);
+    cpu->Tick();
+    cpu->Tick();
+    cpu->Tick();
     return pc + 1;
   }
 
@@ -165,6 +188,7 @@ namespace exec {
     assert(instr.addressing_mode == AddressingMode::Implicit);
 
     StatusReg stat = std::bit_cast<StatusReg>(Pop8(cpu));
+    cpu->Tick();
     u16 addr = Pop16(cpu);
 
     cpu->registers.p.carry = stat.carry;
@@ -173,6 +197,7 @@ namespace exec {
     cpu->registers.p.decimal = stat.decimal;
     cpu->registers.p.overflow = stat.overflow;
     cpu->registers.p.negative = stat.negative;
+    cpu->Tick();
     return addr;
   }
 
@@ -180,7 +205,8 @@ namespace exec {
     assert(instr.addressing_mode == AddressingMode::Relative);
     i8 offset = ReadNextRelative(cpu);
     if (cpu->registers.p.carry) {
-      return cpu->registers.pc + offset;
+      AddOffsetToPC(cpu, offset);
+      cpu->Tick();
     }
     return cpu->registers.pc;
   }
@@ -189,7 +215,8 @@ namespace exec {
     assert(instr.addressing_mode == AddressingMode::Relative);
     i8 offset = ReadNextRelative(cpu);
     if (!cpu->registers.p.carry) {
-      return cpu->registers.pc + offset;
+      AddOffsetToPC(cpu, offset);
+      cpu->Tick();
     }
     return cpu->registers.pc;
   }
@@ -198,7 +225,8 @@ namespace exec {
     assert(instr.addressing_mode == AddressingMode::Relative);
     i8 offset = ReadNextRelative(cpu);
     if (cpu->registers.p.zero) {
-      return cpu->registers.pc + offset;
+      AddOffsetToPC(cpu, offset);
+      cpu->Tick();
     }
     return cpu->registers.pc;
   }
@@ -207,7 +235,8 @@ namespace exec {
     assert(instr.addressing_mode == AddressingMode::Relative);
     i8 offset = ReadNextRelative(cpu);
     if (!cpu->registers.p.zero) {
-      return cpu->registers.pc + offset;
+      AddOffsetToPC(cpu, offset);
+      cpu->Tick();
     }
     return cpu->registers.pc;
   }
@@ -216,7 +245,8 @@ namespace exec {
     assert(instr.addressing_mode == AddressingMode::Relative);
     i8 offset = ReadNextRelative(cpu);
     if (cpu->registers.p.negative) {
-      return cpu->registers.pc + offset;
+      AddOffsetToPC(cpu, offset);
+      cpu->Tick();
     }
     return cpu->registers.pc;
   }
@@ -225,7 +255,8 @@ namespace exec {
     assert(instr.addressing_mode == AddressingMode::Relative);
     i8 offset = ReadNextRelative(cpu);
     if (cpu->registers.p.overflow) {
-      return cpu->registers.pc + offset;
+      AddOffsetToPC(cpu, offset);
+      cpu->Tick();
     }
     return cpu->registers.pc;
   }
@@ -234,7 +265,8 @@ namespace exec {
     assert(instr.addressing_mode == AddressingMode::Relative);
     i8 offset = ReadNextRelative(cpu);
     if (!cpu->registers.p.overflow) {
-      return cpu->registers.pc + offset;
+      AddOffsetToPC(cpu, offset);
+      cpu->Tick();
     }
     return cpu->registers.pc;
   }
@@ -243,7 +275,8 @@ namespace exec {
     assert(instr.addressing_mode == AddressingMode::Relative);
     i8 offset = ReadNextRelative(cpu);
     if (!cpu->registers.p.negative) {
-      return cpu->registers.pc + offset;
+      AddOffsetToPC(cpu, offset);
+      cpu->Tick();
     }
     return cpu->registers.pc;
   }
@@ -332,30 +365,35 @@ namespace exec {
   u16 SEC(const Instruction& instr, Cpu* cpu) {
     assert(instr.addressing_mode == AddressingMode::Implicit);
     cpu->registers.p.carry = 1;
+    cpu->Tick();
     return cpu->registers.pc;
   }
 
   u16 SED(const Instruction& instr, Cpu* cpu) {
     assert(instr.addressing_mode == AddressingMode::Implicit);
     cpu->registers.p.decimal = 1;
+    cpu->Tick();
     return cpu->registers.pc;
   }
 
   u16 SEI(const Instruction& instr, Cpu* cpu) {
     assert(instr.addressing_mode == AddressingMode::Implicit);
     cpu->registers.p.interrupt_disable = 1;
+    cpu->Tick();
     return cpu->registers.pc;
   }
 
   u16 CLC(const Instruction& instr, Cpu* cpu) {
     assert(instr.addressing_mode == AddressingMode::Implicit);
     cpu->registers.p.carry = 0;
+    cpu->Tick();
     return cpu->registers.pc;
   }
 
   u16 CLD(const Instruction& instr, Cpu* cpu) {
     assert(instr.addressing_mode == AddressingMode::Implicit);
     cpu->registers.p.decimal = 0;
+    cpu->Tick();
     return cpu->registers.pc;
   }
   u16 CLI(const Instruction& instr, Cpu* cpu) {
@@ -367,6 +405,7 @@ namespace exec {
   u16 CLV(const Instruction& instr, Cpu* cpu) {
     assert(instr.addressing_mode == AddressingMode::Implicit);
     cpu->registers.p.overflow = 0;
+    cpu->Tick();
     return cpu->registers.pc;
   }
 
@@ -391,6 +430,7 @@ namespace exec {
     assert(instr.addressing_mode == AddressingMode::Implicit);
     u8 status = cpu->registers.p.val;
     status |= (1 << 4) | (1 << 5);
+    cpu->Tick();
     Push8(cpu, status);
     return cpu->registers.pc;
   }
@@ -398,23 +438,28 @@ namespace exec {
   u16 PLP(const Instruction& instr, Cpu* cpu) {
     assert(instr.addressing_mode == AddressingMode::Implicit);
     auto new_status = std::bit_cast<StatusReg>(Pop8(cpu));
+    cpu->Tick();
     new_status.ignored = cpu->registers.p.ignored;
     new_status.b_flag = cpu->registers.p.b_flag;
     cpu->registers.p = new_status;
+    cpu->Tick();
     return cpu->registers.pc;
   }
 
   u16 PLA(const Instruction& instr, Cpu* cpu) {
     assert(instr.addressing_mode == AddressingMode::Implicit);
     cpu->registers.a = Pop8(cpu);
+    cpu->Tick();
     cpu->registers.p.zero = cpu->registers.a == 0;
     cpu->registers.p.negative = (cpu->registers.a >> 7) & 0b1;
+    cpu->Tick();
     return cpu->registers.pc;
   }
 
   u16 PHA(const Instruction& instr, Cpu* cpu) {
     assert(instr.addressing_mode == AddressingMode::Implicit);
     Push8(cpu, cpu->registers.a);
+    cpu->Tick();
     return cpu->registers.pc;
   }
 
@@ -584,6 +629,7 @@ namespace exec {
     cpu->registers.y += 1;
     cpu->registers.p.zero = cpu->registers.y == 0;
     cpu->registers.p.negative = (cpu->registers.y >> 7) & 0b1;
+    cpu->Tick();
     return cpu->registers.pc;
   }
 
@@ -601,6 +647,7 @@ namespace exec {
     cpu->registers.y -= 1;
     cpu->registers.p.zero = cpu->registers.y == 0;
     cpu->registers.p.negative = (cpu->registers.y >> 7) & 0b1;
+    cpu->Tick();
     return cpu->registers.pc;
   }
 
@@ -609,6 +656,7 @@ namespace exec {
     cpu->registers.x -= 1;
     cpu->registers.p.zero = cpu->registers.x == 0;
     cpu->registers.p.negative = (cpu->registers.x >> 7) & 0b1;
+    cpu->Tick();
     return cpu->registers.pc;
   }
 
@@ -617,6 +665,7 @@ namespace exec {
     cpu->registers.y = cpu->registers.a;
     cpu->registers.p.zero = cpu->registers.y == 0;
     cpu->registers.p.negative = (cpu->registers.y >> 7) & 0b1;
+    cpu->Tick();
     return cpu->registers.pc;
   }
 
@@ -625,6 +674,7 @@ namespace exec {
     cpu->registers.x = cpu->registers.a;
     cpu->registers.p.zero = cpu->registers.x == 0;
     cpu->registers.p.negative = (cpu->registers.x >> 7) & 0b1;
+    cpu->Tick();
     return cpu->registers.pc;
   }
 
@@ -633,6 +683,7 @@ namespace exec {
     cpu->registers.a = cpu->registers.y;
     cpu->registers.p.zero = cpu->registers.a == 0;
     cpu->registers.p.negative = (cpu->registers.a >> 7) & 0b1;
+    cpu->Tick();
     return cpu->registers.pc;
   }
 
@@ -641,6 +692,7 @@ namespace exec {
     cpu->registers.a = cpu->registers.x;
     cpu->registers.p.zero = cpu->registers.a == 0;
     cpu->registers.p.negative = (cpu->registers.a >> 7) & 0b1;
+    cpu->Tick();
     return cpu->registers.pc;
   }
 
@@ -649,12 +701,14 @@ namespace exec {
     cpu->registers.x = cpu->registers.sp;
     cpu->registers.p.zero = cpu->registers.x == 0;
     cpu->registers.p.negative = (cpu->registers.x >> 7) & 0b1;
+    cpu->Tick();
     return cpu->registers.pc;
   }
 
   u16 TXS(const Instruction& instr, Cpu* cpu) {
     assert(instr.addressing_mode == AddressingMode::Implicit);
     cpu->registers.sp = cpu->registers.x;
+    cpu->Tick();
     return cpu->registers.pc;
   }
 
@@ -687,7 +741,6 @@ namespace exec {
         cpu->Tick();
         val = cpu->Read(addr);
         result = val >> 1;
-        cpu->Tick();
         cpu->Write(addr, result);
         break;
       }
@@ -740,7 +793,6 @@ namespace exec {
         cpu->Tick();
         val = cpu->Read(addr);
         result = val << 1;
-        cpu->Tick();
         cpu->Write(addr, result);
         break;
       }
@@ -799,7 +851,6 @@ namespace exec {
         u8 new_c = val & 0b1;
         result = ((val >> 1) & 0x7F) | ((cpu->registers.p.carry & 0b1) << 7);
         cpu->registers.p.carry = new_c;
-        cpu->Tick();
         cpu->Write(addr, result);
         break;
       }
@@ -861,7 +912,6 @@ namespace exec {
         u8 new_c = (val >> 7) & 0b1;
         result = ((val << 1) & 0xFE) | (cpu->registers.p.carry & 0b1);
         cpu->registers.p.carry = new_c;
-        cpu->Tick();
         cpu->Write(addr, result);
         break;
       }
@@ -901,7 +951,7 @@ namespace exec {
       case AddressingMode::ZeroPage: addr = cpu->ReadNext(); break;
       case AddressingMode::IndexedZeroPageX: addr = address::IndexedZeroPageX(cpu, cpu->ReadNext()); break;
       case AddressingMode::Absolute: addr = cpu->ReadNext16(); break;
-      case AddressingMode::IndexedAbsoluteX: addr = address::IndexedAbsoluteX(cpu, cpu->ReadNext16()); break;
+      case AddressingMode::IndexedAbsoluteX: addr = address::IndexedAbsoluteX(cpu, cpu->ReadNext16(), true); break;
       default: std::unreachable();
     }
 
@@ -917,7 +967,7 @@ namespace exec {
       case AddressingMode::ZeroPage: addr = cpu->ReadNext(); break;
       case AddressingMode::IndexedZeroPageX: addr = address::IndexedZeroPageX(cpu, cpu->ReadNext()); break;
       case AddressingMode::Absolute: addr = cpu->ReadNext16(); break;
-      case AddressingMode::IndexedAbsoluteX: addr = address::IndexedAbsoluteX(cpu, cpu->ReadNext16()); break;
+      case AddressingMode::IndexedAbsoluteX: addr = address::IndexedAbsoluteX(cpu, cpu->ReadNext16(), true); break;
       default: std::unreachable();
     }
 
@@ -1026,7 +1076,6 @@ namespace exec {
         cpu->Tick();
         val = cpu->Read(addr);
         result = val << 1;
-        cpu->Tick();
         cpu->Write(addr, result);
         break;
       }
@@ -1043,7 +1092,6 @@ namespace exec {
         cpu->Tick();
         val = cpu->Read(addr);
         result = val << 1;
-        cpu->Tick();
         cpu->Write(addr, result);
         break;
       }
@@ -1052,7 +1100,6 @@ namespace exec {
         cpu->Tick();
         val = cpu->Read(addr);
         result = val << 1;
-        cpu->Tick();
         cpu->Write(addr, result);
         break;
       }
@@ -1061,7 +1108,6 @@ namespace exec {
         cpu->Tick();
         val = cpu->Read(addr);
         result = val << 1;
-        cpu->Tick();
         cpu->Write(addr, result);
         break;
       }
@@ -1070,7 +1116,6 @@ namespace exec {
         cpu->Tick();
         val = cpu->Read(addr);
         result = val << 1;
-        cpu->Tick();
         cpu->Write(addr, result);
         break;
       }
@@ -1102,7 +1147,6 @@ namespace exec {
         cpu->Tick();
         val = cpu->Read(addr);
         result = val >> 1;
-        cpu->Tick();
         cpu->Write(addr, result);
         break;
       }
@@ -1119,7 +1163,6 @@ namespace exec {
         cpu->Tick();
         val = cpu->Read(addr);
         result = val >> 1;
-        cpu->Tick();
         cpu->Write(addr, result);
         break;
       }
@@ -1128,7 +1171,6 @@ namespace exec {
         cpu->Tick();
         val = cpu->Read(addr);
         result = val >> 1;
-        cpu->Tick();
         cpu->Write(addr, result);
         break;
       }
@@ -1137,7 +1179,6 @@ namespace exec {
         cpu->Tick();
         val = cpu->Read(addr);
         result = val >> 1;
-        cpu->Tick();
         cpu->Write(addr, result);
         break;
       }
@@ -1146,7 +1187,6 @@ namespace exec {
         cpu->Tick();
         val = cpu->Read(addr);
         result = val >> 1;
-        cpu->Tick();
         cpu->Write(addr, result);
         break;
       }
@@ -1179,7 +1219,6 @@ namespace exec {
         u8 new_c = (val >> 7) & 0b1;
         result = ((val << 1) & 0xFE) | (cpu->registers.p.carry & 0b1);
         cpu->registers.p.carry = new_c;
-        cpu->Tick();
         cpu->Write(addr, result);
         break;
       }
@@ -1200,7 +1239,6 @@ namespace exec {
         val = cpu->Read(addr);
         result = ((val << 1) & 0xFE) | (cpu->registers.p.carry & 0b1);
         cpu->registers.p.carry = new_c;
-        cpu->Tick();
         cpu->Write(addr, result);
         break;
       }
@@ -1211,7 +1249,6 @@ namespace exec {
         val = cpu->Read(addr);
         result = ((val << 1) & 0xFE) | (cpu->registers.p.carry & 0b1);
         cpu->registers.p.carry = new_c;
-        cpu->Tick();
         cpu->Write(addr, result);
         break;
       }
@@ -1222,7 +1259,6 @@ namespace exec {
         val = cpu->Read(addr);
         result = ((val << 1) & 0xFE) | (cpu->registers.p.carry & 0b1);
         cpu->registers.p.carry = new_c;
-        cpu->Tick();
         cpu->Write(addr, result);
         break;
       }
@@ -1233,7 +1269,6 @@ namespace exec {
         val = cpu->Read(addr);
         result = ((val << 1) & 0xFE) | (cpu->registers.p.carry & 0b1);
         cpu->registers.p.carry = new_c;
-        cpu->Tick();
         cpu->Write(addr, result);
         break;
       }
@@ -1267,7 +1302,6 @@ namespace exec {
         u8 new_c = val & 0b1;
         result = ((val >> 1) & 0x7F) | ((cpu->registers.p.carry & 0b1) << 7);
         cpu->registers.p.carry = new_c;
-        cpu->Tick();
         cpu->Write(addr, result);
         break;
       }
@@ -1288,7 +1322,6 @@ namespace exec {
         u8 new_c = val & 0b1;
         result = ((val >> 1) & 0x7F) | ((cpu->registers.p.carry & 0b1) << 7);
         cpu->registers.p.carry = new_c;
-        cpu->Tick();
         cpu->Write(addr, result);
         break;
       }
@@ -1299,7 +1332,6 @@ namespace exec {
         u8 new_c = val & 0b1;
         result = ((val >> 1) & 0x7F) | ((cpu->registers.p.carry & 0b1) << 7);
         cpu->registers.p.carry = new_c;
-        cpu->Tick();
         cpu->Write(addr, result);
         break;
       }
@@ -1310,7 +1342,6 @@ namespace exec {
         u8 new_c = val & 0b1;
         result = ((val >> 1) & 0x7F) | ((cpu->registers.p.carry & 0b1) << 7);
         cpu->registers.p.carry = new_c;
-        cpu->Tick();
         cpu->Write(addr, result);
         break;
       }
@@ -1321,7 +1352,6 @@ namespace exec {
         u8 new_c = val & 0b1;
         result = ((val >> 1) & 0x7F) | ((cpu->registers.p.carry & 0b1) << 7);
         cpu->registers.p.carry = new_c;
-        cpu->Tick();
         cpu->Write(addr, result);
         break;
       }
@@ -1446,18 +1476,16 @@ void Cpu::Write(u16 address, u8 value) {
 }
 
 u8 Cpu::Increment(u16 address) {
-  u8 result = bus->Read(address) + 1;
-  spdlog::trace("Increment @{:04X} : {:02X} -> {:02X}", address, result-1, result);
-  bus->Write(address, result);
+  u8 result = Read(address) + 1;
   Tick();
+  Write(address, result);
   return result;
 }
 
 u8 Cpu::Decrement(u16 address) {
-  u8 result = bus->Read(address) - 1;
-  spdlog::trace("Decrement @{:04X} : {:02X} -> {:02X}", address, result+1, result);
-  bus->Write(address, result);
+  u8 result = Read(address) - 1;
   Tick();
+  Write(address, result);
   return result;
 }
 

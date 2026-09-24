@@ -192,9 +192,9 @@ Instruction Decoder::Decode(u8 byte, u16 addr) {
     case 0xDC: return Instruction::From(Op::NOP, AddressingMode::IndexedAbsoluteX, byte, addr, 0, true);
     case 0xFC: return Instruction::From(Op::NOP, AddressingMode::IndexedAbsoluteX, byte, addr, 0, true);
     // IGN d
-    case 0x04: return Instruction::From(Op::NOP, AddressingMode::Implicit, byte, addr, 1, true);
-    case 0x44: return Instruction::From(Op::NOP, AddressingMode::Implicit, byte, addr, 1, true);
-    case 0x64: return Instruction::From(Op::NOP, AddressingMode::Implicit, byte, addr, 1, true);
+    case 0x04: return Instruction::From(Op::NOP, AddressingMode::ZeroPage, byte, addr, 0, true);
+    case 0x44: return Instruction::From(Op::NOP, AddressingMode::ZeroPage, byte, addr, 0, true);
+    case 0x64: return Instruction::From(Op::NOP, AddressingMode::ZeroPage, byte, addr, 0, true);
     // IGN d,X
     case 0x14: return Instruction::From(Op::NOP, AddressingMode::IndexedZeroPageX, byte, addr, 0, true);
     case 0x34: return Instruction::From(Op::NOP, AddressingMode::IndexedZeroPageX, byte, addr, 0, true);
