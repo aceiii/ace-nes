@@ -11,6 +11,8 @@ add_compile_definitions(TOML_EXCEPTIONS=0)
 
 set(ARGPARSE_BUILD_TESTS OFF)
 
+option(BUILD_NESTEST "Build nestest executable" OFF)
+
 include(cmake/raylib.cmake)
 include(cmake/rlimgui.cmake)
 include(cmake/imgui_club.cmake)
@@ -50,5 +52,7 @@ target_include_directories(ace-nes-shared PUBLIC external/rlimgui)
 add_executable(ace-nes src/main.cpp)
 target_link_libraries(ace-nes PRIVATE ace-nes-shared)
 
-add_executable(nestest src/nestest.cpp)
-target_link_libraries(nestest PRIVATE ace-nes-shared)
+if (BUILD_NESTEST)
+    add_executable(nestest src/nestest.cpp)
+    target_link_libraries(nestest PRIVATE ace-nes-shared)
+endif()
