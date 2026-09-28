@@ -57,6 +57,8 @@ add_executable(ace-nes
     src/args.hpp
     src/gui_app.cpp
     src/gui_app.hpp
+    src/headless_app.cpp
+    src/headless_app.hpp
     src/options_parser.cpp
     src/options_parser.cpp
 )

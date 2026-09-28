@@ -1,9 +1,10 @@
 #pragma once
 
 #include "app.hpp"
+#include "app_options.hpp"
 
 
-class GuiApp : public App {
+class GuiApp final : public App {
 public:
   GuiApp(const AppOptions& options);
 

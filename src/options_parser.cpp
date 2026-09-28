@@ -14,8 +14,8 @@ std::expected<AppOptions, std::string> OptionsParser::ParseOptions(std::span<cha
     .choices("trace", "debug", "info", "warn", "err", "critical", "off")
     .nargs(1);
 
-  program.add_argument("rom")
-    .help("path to NES ROM file");
+  program.add_argument("--headless")
+    .help("Headless mode, path to NES ROM file");
 
   try {
     program.parse_args(args.size(), args.data());
@@ -26,8 +26,16 @@ std::expected<AppOptions, std::string> OptionsParser::ParseOptions(std::span<cha
   auto level_name = program.get("--log-level");
   auto log_level = magic_enum::enum_cast<spdlog::level::level_enum>(level_name);
 
+  std::string rom_path;
+  bool headless = false;
+  if (program.is_used("--headless")) {
+    headless = true;
+    rom_path = program.get("--headless");
+  }
+
   return AppOptions{
     .log_level = log_level.value_or(spdlog::level::info),
-    .rom_path = program.get<std::string>("rom"),
+    .headless = headless,
+    .rom_path = rom_path,
   };
 }
