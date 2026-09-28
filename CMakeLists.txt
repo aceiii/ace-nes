@@ -49,7 +49,18 @@ target_link_libraries(ace-nes-shared nfd)
 target_link_libraries(ace-nes-shared tomlplusplus::tomlplusplus)
 target_include_directories(ace-nes-shared PUBLIC external/rlimgui)
 
-add_executable(ace-nes src/main.cpp)
+add_executable(ace-nes
+    src/main.cpp
+    src/app.cpp
+    src/app.hpp
+    src/app_options.hpp
+    src/args.hpp
+    src/gui_app.cpp
+    src/gui_app.hpp
+    src/options_parser.cpp
+    src/options_parser.cpp
+)
+
 target_link_libraries(ace-nes PRIVATE ace-nes-shared)
 
 if (BUILD_NESTEST)
