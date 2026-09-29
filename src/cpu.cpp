@@ -489,7 +489,7 @@ namespace exec {
     switch (instr.addressing_mode) {
       case AddressingMode::Immediate: val = ReadNextImmediate(cpu); break;
       case AddressingMode::ZeroPage: val = ReadNextZeroPage(cpu); break;
-      case AddressingMode::IndexedZeroPageX: ReadNextIndexedZeroPageX(cpu); cpu.Tick(); break;
+      case AddressingMode::IndexedZeroPageX: val = ReadNextIndexedZeroPageX(cpu); cpu.Tick(); break;
       case AddressingMode::Absolute: val = ReadNextAbsolute(cpu); break;
       case AddressingMode::IndexedAbsoluteX: val = ReadNextIndexedAbsoluteX(cpu); break;
       case AddressingMode::IndexedAbsoluteY: val = ReadNextIndexedAbsoluteY(cpu); break;
@@ -509,7 +509,7 @@ namespace exec {
     switch (instr.addressing_mode) {
       case AddressingMode::Immediate: val = ReadNextImmediate(cpu); break;
       case AddressingMode::ZeroPage: val = ReadNextZeroPage(cpu); break;
-      case AddressingMode::IndexedZeroPageX: ReadNextIndexedZeroPageX(cpu); cpu.Tick(); break;
+      case AddressingMode::IndexedZeroPageX: val = ReadNextIndexedZeroPageX(cpu); cpu.Tick(); break;
       case AddressingMode::Absolute: val = ReadNextAbsolute(cpu); break;
       case AddressingMode::IndexedAbsoluteX: val = ReadNextIndexedAbsoluteX(cpu); break;
       case AddressingMode::IndexedAbsoluteY: val = ReadNextIndexedAbsoluteY(cpu); break;
@@ -550,7 +550,7 @@ namespace exec {
     switch (instr.addressing_mode) {
       case AddressingMode::Immediate: val = ReadNextImmediate(cpu); break;
       case AddressingMode::ZeroPage: val = ReadNextZeroPage(cpu); break;
-      case AddressingMode::Absolute: val =ReadNextAbsolute(cpu); break;
+      case AddressingMode::Absolute: val = ReadNextAbsolute(cpu); break;
       default: std::unreachable();
     }
 
@@ -582,7 +582,7 @@ namespace exec {
     switch (instr.addressing_mode) {
       case AddressingMode::Immediate: val = ReadNextImmediate(cpu); break;
       case AddressingMode::ZeroPage: val = ReadNextZeroPage(cpu); break;
-      case AddressingMode::IndexedZeroPageX: ReadNextIndexedZeroPageX(cpu); cpu.Tick(); break;
+      case AddressingMode::IndexedZeroPageX: val = ReadNextIndexedZeroPageX(cpu); cpu.Tick(); break;
       case AddressingMode::Absolute: val = ReadNextAbsolute(cpu); break;
       case AddressingMode::IndexedAbsoluteX: val = ReadNextIndexedAbsoluteX(cpu); break;
       case AddressingMode::IndexedAbsoluteY: val = ReadNextIndexedAbsoluteY(cpu); break;
