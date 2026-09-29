@@ -2,6 +2,11 @@ cmake_minimum_required(VERSION 3.15)
 
 project(ace-nes VERSION 0.0.1 LANGUAGES CXX)
 
+if(APPLE)
+    enable_language(OBJC)
+    enable_language(OBJCXX)
+endif()
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -13,8 +18,6 @@ set(ARGPARSE_BUILD_TESTS OFF)
 
 option(BUILD_NESTEST "Build nestest executable" OFF)
 
-include(cmake/raylib.cmake)
-include(cmake/rlimgui.cmake)
 include(cmake/imgui_club.cmake)
 
 add_subdirectory(external/spdlog)
@@ -22,6 +25,7 @@ add_subdirectory(external/argparse)
 add_subdirectory(external/magic_enum)
 add_subdirectory(external/nativefiledialog-extended)
 add_subdirectory(external/tomlplusplus)
+add_subdirectory(external/SDL)
 
 add_library(ace-nes-shared STATIC
     src/address.hpp
@@ -44,10 +48,8 @@ add_library(ace-nes-shared STATIC
 target_link_libraries(ace-nes-shared spdlog)
 target_link_libraries(ace-nes-shared argparse)
 target_link_libraries(ace-nes-shared magic_enum)
-target_link_libraries(ace-nes-shared rlimgui)
 target_link_libraries(ace-nes-shared nfd)
 target_link_libraries(ace-nes-shared tomlplusplus::tomlplusplus)
-target_include_directories(ace-nes-shared PUBLIC external/rlimgui)
 
 add_executable(ace-nes
     src/main.cpp
@@ -63,7 +65,10 @@ add_executable(ace-nes
     src/options_parser.cpp
 )
 
-target_link_libraries(ace-nes PRIVATE ace-nes-shared)
+target_link_libraries(ace-nes PRIVATE
+    ace-nes-shared
+    SDL3::SDL3
+)
 
 if (BUILD_NESTEST)
     add_executable(nestest src/nestest.cpp)
