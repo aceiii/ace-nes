@@ -19,6 +19,7 @@ set(ARGPARSE_BUILD_TESTS OFF)
 option(BUILD_NESTEST "Build nestest executable" OFF)
 
 include(cmake/imgui_club.cmake)
+include(cmake/imgui.cmake)
 
 add_subdirectory(external/spdlog)
 add_subdirectory(external/argparse)
@@ -67,6 +68,7 @@ add_executable(ace-nes
 
 target_link_libraries(ace-nes PRIVATE
     ace-nes-shared
+    imgui::imgui
     SDL3::SDL3
 )
 
