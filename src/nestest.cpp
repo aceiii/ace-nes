@@ -300,8 +300,8 @@ auto main(int argc, char *argv[]) -> int {
 
   auto& rom = cart.Rom();
 
-  TestBus bus;
-  bus.cart = &cart;
+  auto bus = std::make_shared<TestBus>();
+  bus->cart = &cart;
 
   Cpu cpu;
   cpu.cycles = 7;
@@ -311,7 +311,7 @@ auto main(int argc, char *argv[]) -> int {
   cpu.registers.pc = 0xC000;
   cpu.registers.sp = 0xfd;
   cpu.registers.p.val = 0x24;
-  cpu.bus = &bus;
+  cpu.bus = bus;
 
   const auto& lines = log_lines.value();
   u64 line_no = 0;
@@ -322,17 +322,17 @@ auto main(int argc, char *argv[]) -> int {
   while (line_no < lines.size() && (exit_at == -1 || line_no <= exit_at)) {
     u16 pc = cpu.registers.pc;
 
-    auto byte = bus.Read(pc, BusMode::Direct);
+    auto byte = bus->Read(pc, BusMode::Direct);
     auto instr = Decoder::Decode(byte, pc);
     if (instr.num_bytes >= 2) {
-      instr.lo = bus.Read(pc + 1, BusMode::Direct);
+      instr.lo = bus->Read(pc + 1, BusMode::Direct);
     }
     if (instr.num_bytes >= 3) {
-      instr.hi = bus.Read(pc + 2, BusMode::Direct);
+      instr.hi = bus->Read(pc + 2, BusMode::Direct);
     }
 
     const auto line_in = lines[line_no].substr(0, 73) + lines[line_no].substr(85, 10);
-    const auto log_line = LogLine(instr, cpu.registers, bus, cpu.cycles);
+    const auto log_line = LogLine(instr, cpu.registers, *bus, cpu.cycles);
     const auto line_out = log_line.substr(0, 73) + log_line.substr(85, 10);
 
     const auto [mismatch, highlighted_line_out] = CompareAndHighlightMismatch(line_in, line_out);

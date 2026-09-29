@@ -1,6 +1,7 @@
 #pragma once
 
 #include <bit>
+#include <memory>
 #include <span>
 
 #include "bus.hpp"
@@ -34,9 +35,10 @@ struct Registers {
 
 class Cpu {
 public:
+  std::shared_ptr<IBus> bus;
+
   Registers registers {};
   u64 cycles {};
-  IBus* bus {};
 
   void Step();
 

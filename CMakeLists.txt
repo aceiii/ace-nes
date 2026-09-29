@@ -38,10 +38,16 @@ add_library(ace-nes-shared STATIC
     src/cpu.cpp
     src/decoder.hpp
     src/decoder.cpp
+    src/emulator.hpp
+    src/emulator.cpp
     src/file.hpp
     src/file.cpp
     src/instruction.hpp
+    src/memory_map.hpp
+    src/memory_map.cpp
     src/op.hpp
+    src/ram.cpp
+    src/ram.hpp
     src/string.hpp
     src/string.cpp
     src/types.hpp
