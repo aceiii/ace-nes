@@ -16,9 +16,6 @@
 [submodule "external/argarse"]
 	path = external/argarse
 	url = https://github.com/p-ranav/argparse.git
-[submodule "external/raylib"]
-	path = external/raylib
-	url = https://github.com/raysan5/raylib.git
 [submodule "external/magic_enum"]
 	path = external/magic_enum
 	url = https://github.com/Neargye/magic_enum.git
