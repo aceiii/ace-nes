@@ -25,3 +25,6 @@
 [submodule "external/SDL"]
 	path = external/SDL
 	url = https://github.com/libsdl-org/SDL.git
+[submodule "external/65x02"]
+	path = external/65x02
+	url = https://github.com/SingleStepTests/65x02.git
