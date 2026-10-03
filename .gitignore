@@ -12,9 +12,14 @@ vcpkg_installed/
 cmake-build-*
 build-*
 
+# cmake
+CMakeUserPresets.json
+
 # executables
 main
-aceboy
+ace-nes
+nestest
+single-step-tests
 
 # application files
 imgui.ini
