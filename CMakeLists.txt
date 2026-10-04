@@ -17,6 +17,7 @@ add_compile_definitions(TOML_EXCEPTIONS=0)
 set(ARGPARSE_BUILD_TESTS OFF)
 
 option(BUILD_NESTEST "Build nestest executable" OFF)
+option(BUILD_SINGLE_STEP_TESTS "Build single step test executable" OFF)
 
 include(cmake/imgui_club.cmake)
 include(cmake/imgui.cmake)
@@ -81,4 +82,10 @@ target_link_libraries(ace-nes PRIVATE
 if (BUILD_NESTEST)
     add_executable(nestest src/nestest.cpp)
     target_link_libraries(nestest PRIVATE ace-nes-shared)
+endif()
+
+if (BUILD_SINGLE_STEP_TESTS)
+    add_subdirectory(external/simdjson)
+    add_executable(single-step-tests src/single_step_tests.cpp)
+    target_link_libraries(single-step-tests PRIVATE ace-nes-shared simdjson::simdjson)
 endif()
