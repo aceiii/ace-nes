@@ -1,3 +1,4 @@
+#include <array>
 #include <filesystem>
 #include <tuple>
 #include <vector>
@@ -6,6 +7,7 @@
 #include <spdlog/spdlog.h>
 #include <simdjson.h>
 
+#include "cpu.hpp"
 #include "file.hpp"
 #include "emulator.hpp"
 #include "types.hpp"
@@ -54,6 +56,18 @@ struct SingleStepTest {
   RegAndMem final;
   std::vector<Cycle> cycles;
 };
+
+struct TestBus : public IBus {
+  std::array<u8, 65536> mem;
+
+  inline u8 Read(u16 address, BusMode mode = BusMode::Normal) override {
+    return mem[address];
+  }
+  inline void Write(u16 address, u8 value, BusMode mode = BusMode::Normal) override {
+    mem[address] = value;
+  }
+};
+
 
 auto ParseRam(simdjson::dom::array arr) {
   std::vector<AddrValue> ram;
@@ -108,6 +122,18 @@ auto ParseSingleStepTest(simdjson::dom::object doc) {
   };
 };
 
+auto SetRegistersAndMemory(Cpu& cpu, TestBus bus, RegAndMem regmem) {
+  cpu.registers.pc = regmem.pc;
+  cpu.registers.sp = regmem.s;
+  cpu.registers.a = regmem.a;
+  cpu.registers.x = regmem.x;
+  cpu.registers.y = regmem.y;
+  cpu.registers.p.val = regmem.p;
+
+  for (const auto& item : regmem.ram) {
+    bus.Write(item.addr, item.val, BusMode::Direct);
+  }
+}
 
 auto RunSingleStepTests(fs::path test_path) {
   simdjson::dom::parser parser;
@@ -116,6 +142,14 @@ auto RunSingleStepTests(fs::path test_path) {
     auto test = ParseSingleStepTest(item.get_object());
 
     spdlog::trace("name='{}'", test.name);
+
+    auto test_bus = std::make_shared<TestBus>();
+
+    Cpu cpu{};
+    cpu.bus = test_bus;
+    SetRegistersAndMemory(cpu, *test_bus, test.initial);
+
+    cpu.Step();
   }
 }
 
