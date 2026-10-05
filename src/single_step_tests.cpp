@@ -217,6 +217,11 @@ struct SingleStepTestConfig {
 
 auto RunSingleStepTests(SingleStepTestConfig config) {
   auto tests = ParseSingleStepTestsJson(config.test_path);
+
+  auto total = tests.size();
+  int passed = 0;
+  int failed = 0;
+
   auto test_index = 0;
   for (auto test : tests) {
     spdlog::info("Running test#{:04} name='{}'", test_index, test.name);
@@ -233,13 +238,38 @@ auto RunSingleStepTests(SingleStepTestConfig config) {
 
     auto result = CompareFinalRegisters(cpu, test.final);
     if (!result.empty()) {
+      failed += 1;
       spdlog::error("Failed test#{:04} name='{}'", test_index, test.name);
       spdlog::error("Mismatches: {}", FormatMismatches(result));
     } else {
+      passed += 1;
       spdlog::info("Passed test#{:04}", test_index);
     }
 
     test_index += 1;
+  }
+
+  spdlog::info("Test summary: {} total, {} passes, {} failed", total, passed, failed);
+}
+
+
+auto RunAllSingleStepTests(SingleStepTestConfig config) {
+  std::vector<fs::path> test_files;
+  test_files.reserve(128);
+
+  for (const auto& entry : fs::directory_iterator(config.test_path)) {
+    if (entry.is_regular_file() && entry.path().extension() == ".json") {
+      test_files.emplace_back(entry.path());
+    }
+  }
+
+  spdlog::info("Found {} test files.", test_files.size());
+
+  for (const auto& path : test_files) {
+    auto new_config = config;
+    new_config.test_path = path;
+
+    RunSingleStepTests(new_config);
   }
 }
 
@@ -281,9 +311,15 @@ auto main(int argc, char *argv[]) -> int {
     return 1;
   }
 
-  RunSingleStepTests({
-    .test_path = test_path,
-  });
+  if (fs::is_directory(test_path)) {
+    RunAllSingleStepTests({
+      .test_path = test_path,
+    });
+  } else {
+    RunSingleStepTests({
+      .test_path = test_path,
+    });
+  }
 
   spdlog::info("Exiting.");
 
