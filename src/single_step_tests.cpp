@@ -219,7 +219,7 @@ auto RunSingleStepTests(SingleStepTestConfig config) {
   auto tests = ParseSingleStepTestsJson(config.test_path);
   auto test_index = 0;
   for (auto test : tests) {
-    spdlog::trace("test#{:04} name='{}'", test_index, test.name);
+    spdlog::info("Running test#{:04} name='{}'", test_index, test.name);
 
     Cpu cpu{};
     cpu.bus = std::make_shared<TestBus>();
@@ -235,6 +235,8 @@ auto RunSingleStepTests(SingleStepTestConfig config) {
     if (!result.empty()) {
       spdlog::error("Failed test#{:04} name='{}'", test_index, test.name);
       spdlog::error("Mismatches: {}", FormatMismatches(result));
+    } else {
+      spdlog::info("Passed test#{:04}", test_index);
     }
 
     test_index += 1;
