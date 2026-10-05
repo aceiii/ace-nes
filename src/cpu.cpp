@@ -1462,7 +1462,7 @@ void Cpu::Step() {
     spdlog::warn("Instruction not implemented: {}({:02X}) @ 0x{:02X}", magic_enum::enum_name(instr.op), instr.code, instr.addr);
   }
 
-  spdlog::trace("Setting new PC = {:02X}", new_pc);
+  spdlog::trace("Setting new pc={:04X}", new_pc);
   registers.pc = new_pc;
 }
 

@@ -2,6 +2,7 @@
 
 #include <string>
 #include <string_view>
+#include <vector>
 
 
 namespace string {
@@ -12,4 +13,5 @@ namespace string {
   std::string_view TrimLeading(std::string_view input, std::string_view chars = kWhiteSpaceChars);
   std::string_view TrimTrailing(std::string_view input, std::string_view chars = kWhiteSpaceChars);
 
+  std::string Join(const std::vector<std::string>& words, std::string_view delim);
 }

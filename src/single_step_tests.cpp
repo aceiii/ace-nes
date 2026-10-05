@@ -1,5 +1,6 @@
 #include <array>
 #include <filesystem>
+#include <format>
 #include <tuple>
 #include <vector>
 #include <argparse/argparse.hpp>
@@ -8,8 +9,9 @@
 #include <simdjson.h>
 
 #include "cpu.hpp"
-#include "file.hpp"
 #include "emulator.hpp"
+#include "file.hpp"
+#include "string.hpp"
 #include "types.hpp"
 
 namespace fs = std::filesystem;
@@ -61,9 +63,12 @@ struct TestBus : public IBus {
   std::array<u8, 65536> mem;
 
   inline u8 Read(u16 address, BusMode mode = BusMode::Normal) override {
+    spdlog::trace("TestBus::Read addr={:04X}, val={:02X}", address, mem[address]);
     return mem[address];
   }
+
   inline void Write(u16 address, u8 value, BusMode mode = BusMode::Normal) override {
+    spdlog::trace("TestBus::Write addr={:04X}, val={:02X}", address, value);
     mem[address] = value;
   }
 };
@@ -135,13 +140,79 @@ auto SetRegistersAndMemory(Cpu& cpu, TestBus bus, RegAndMem regmem) {
   }
 }
 
-auto RunSingleStepTests(fs::path test_path) {
+auto FormatRegisters(Cpu& cpu) {
+  const auto& regs = cpu.registers;
+  return std::format("pc={:04X}, a={:02X}, x={:02X}, y={:02X}, s={:02X}, p={:02X}", regs.pc, regs.a, regs.x, regs.y, regs.sp, regs.p.val);
+}
+
+
+struct MismatchedValue {
+  std::string name;
+  u16 expected;
+  u16 actual;
+};
+
+template <typename T>
+auto CompareAndPushMismatch(std::vector<MismatchedValue>& mismatches, std::string_view name, T expected, T actual) {
+  if (expected != actual) {
+    mismatches.emplace_back(std::string(name), expected, actual);
+  }
+}
+
+auto CompareFinalRegisters(Cpu& cpu, RegAndMem regmem) {
+  std::vector<MismatchedValue> results;
+  results.reserve(128);
+
+  const auto &regs = cpu.registers;
+
+  CompareAndPushMismatch(results, "pc", regmem.pc, regs.pc);
+  CompareAndPushMismatch(results, "a", regmem.a, regs.a);
+  CompareAndPushMismatch(results, "x", regmem.x, regs.x);
+  CompareAndPushMismatch(results, "y", regmem.y, regs.y);
+  CompareAndPushMismatch(results, "s", regmem.s, regs.sp);
+  CompareAndPushMismatch(results, "p", regmem.p, regs.p.val);
+
+  for (const auto& mem : regmem.ram) {
+    CompareAndPushMismatch(results, std::format("mem[{:02X}]", mem.addr), mem.val, cpu.bus->Read(mem.addr, BusMode::Direct));
+  }
+
+  return results;
+}
+
+auto FormatMismatches(const std::vector<MismatchedValue>& mismatches) {
+  std::vector<std::string> results;
+  results.reserve(128);
+
+  for (const auto& item : mismatches) {
+    results.push_back(std::format("{}:{:04X}!={:04X}", item.name, item.expected, item.actual));
+  }
+
+  return string::Join(results, ", ");
+}
+
+auto ParseSingleStepTestsJson(fs::path path) {
+  std::vector<SingleStepTest> results;
+  results.reserve(1024);
+
   simdjson::dom::parser parser;
-  auto doc = parser.load(test_path.string());
+  auto doc = parser.load(path.string());
   for (auto item : doc) {
     auto test = ParseSingleStepTest(item.get_object());
+    results.push_back(test);
+  }
 
-    spdlog::trace("name='{}'", test.name);
+  return results;
+}
+
+struct SingleStepTestConfig {
+  fs::path test_path;
+};
+
+auto RunSingleStepTests(SingleStepTestConfig config) {
+  auto tests = ParseSingleStepTestsJson(config.test_path);
+  auto test_index = 0;
+  for (auto test : tests) {
+    spdlog::trace("test#{:04} name='{}'", test_index, test.name);
 
     auto test_bus = std::make_shared<TestBus>();
 
@@ -149,7 +220,17 @@ auto RunSingleStepTests(fs::path test_path) {
     cpu.bus = test_bus;
     SetRegistersAndMemory(cpu, *test_bus, test.initial);
 
+    spdlog::trace("before: {}", FormatRegisters(cpu));
     cpu.Step();
+    spdlog::trace("after:  {}", FormatRegisters(cpu));
+
+    auto result = CompareFinalRegisters(cpu, test.final);
+    if (!result.empty()) {
+      spdlog::error("Failed test name='{}'", test.name);
+      spdlog::error("Mismatches: {}", FormatMismatches(result));
+    }
+
+    test_index += 1;
   }
 }
 
@@ -191,7 +272,9 @@ auto main(int argc, char *argv[]) -> int {
     return 1;
   }
 
-  RunSingleStepTests(test_path);
+  RunSingleStepTests({
+    .test_path = test_path,
+  });
 
   spdlog::info("Exiting.");
 
