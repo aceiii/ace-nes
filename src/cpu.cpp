@@ -716,7 +716,20 @@ namespace exec {
   u16 BRK(const Instruction& instr, Cpu& cpu) {
     assert(instr.addressing_mode == AddressingMode::Implicit);
     cpu.ReadNext();
-    return cpu.registers.pc;
+
+    Push16(cpu, cpu.registers.pc);
+
+    u8 flags = cpu.registers.p.val | 0b00110000;
+    Push8(cpu, flags);
+
+    u8 lo = cpu.Read(0xFFFE);
+    u8 hi = cpu.Read(0xFFFF);
+
+    u16 new_pc = (hi << 8) | lo;
+
+    cpu.registers.p.interrupt_disable = 1;
+
+    return new_pc;
   }
 
   u16 LSR(const Instruction& instr, Cpu& cpu) {
