@@ -61,14 +61,21 @@ struct SingleStepTest {
 
 struct TestBus : public IBus {
   std::array<u8, 65536> mem;
+  std::vector<Cycle> cycles;
 
-  inline u8 Read(u16 address, BusMode mode = BusMode::Normal) override {
+  u8 Read(u16 address, BusMode mode = BusMode::Normal) override {
     spdlog::trace("TestBus::Read addr={:04X}, val={:02X}", address, mem[address]);
+    if (mode == BusMode::Normal) {
+      cycles.emplace_back(address, mem[address], Cycle::Method::Read);
+    }
     return mem[address];
   }
 
-  inline void Write(u16 address, u8 value, BusMode mode = BusMode::Normal) override {
+  void Write(u16 address, u8 value, BusMode mode = BusMode::Normal) override {
     spdlog::trace("TestBus::Write addr={:04X}, val={:02X}", address, value);
+    if (mode == BusMode::Normal) {
+      cycles.emplace_back(address, value, Cycle::Method::Write);
+    }
     mem[address] = value;
   }
 };
@@ -127,7 +134,7 @@ auto ParseSingleStepTest(simdjson::dom::object doc) {
   };
 };
 
-auto SetRegistersAndMemory(Cpu& cpu, TestBus bus, RegAndMem regmem) {
+auto SetRegistersAndMemory(Cpu& cpu, RegAndMem regmem) {
   cpu.registers.pc = regmem.pc;
   cpu.registers.sp = regmem.s;
   cpu.registers.a = regmem.a;
@@ -136,7 +143,7 @@ auto SetRegistersAndMemory(Cpu& cpu, TestBus bus, RegAndMem regmem) {
   cpu.registers.p.val = regmem.p;
 
   for (const auto& item : regmem.ram) {
-    bus.Write(item.addr, item.val, BusMode::Direct);
+    cpu.bus->Write(item.addr, item.val, BusMode::Direct);
   }
 }
 
@@ -214,19 +221,19 @@ auto RunSingleStepTests(SingleStepTestConfig config) {
   for (auto test : tests) {
     spdlog::trace("test#{:04} name='{}'", test_index, test.name);
 
-    auto test_bus = std::make_shared<TestBus>();
-
     Cpu cpu{};
-    cpu.bus = test_bus;
-    SetRegistersAndMemory(cpu, *test_bus, test.initial);
+    cpu.bus = std::make_shared<TestBus>();
+    SetRegistersAndMemory(cpu, test.initial);
 
     spdlog::trace("before: {}", FormatRegisters(cpu));
+    spdlog::trace("==================================");
     cpu.Step();
+    spdlog::trace("==================================");
     spdlog::trace("after:  {}", FormatRegisters(cpu));
 
     auto result = CompareFinalRegisters(cpu, test.final);
     if (!result.empty()) {
-      spdlog::error("Failed test name='{}'", test.name);
+      spdlog::error("Failed test#{:04} name='{}'", test_index, test.name);
       spdlog::error("Mismatches: {}", FormatMismatches(result));
     }
 
